@@ -1,3 +1,3 @@
 
-def always_true():
-    assert True
+def dummy():
+    pass
