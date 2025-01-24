@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import Union,Generator
-def fetch_source_files(project_path:Union[Path|str],extensions:list[str])->Generator[Path]:
+def fetch_source_files(project_path:Union[Path|str],extensions:list[str])->Generator[Path,None,None]:
     path = project_path
     if isinstance(path,str):
         path = Path(project_path)
