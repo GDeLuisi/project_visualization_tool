@@ -19,7 +19,7 @@ dependencies = [
 ]
 [tool.pytest.ini_options]
 pythonpath = [
-  ".", "src",
+  ".", "src","src/_internal"
 ]
 [project.urls]
 Homepage = "https://github.com/GDeLuisi/project_visualization_tool"
