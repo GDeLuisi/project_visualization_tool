@@ -1,6 +1,6 @@
-from pytest import fixture,mark,raises
+from pytest import mark,raises
 from pathlib import Path
-from src._internal.file_parser import fetch_source_files
+from _internal.file_parser import fetch_source_files
 from typing import Generator
 workingpath=Path.cwd()
 testdata_fetchsource_correct=[
