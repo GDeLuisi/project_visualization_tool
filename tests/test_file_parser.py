@@ -10,12 +10,14 @@ testdata_fetchsource_correct=[
 # "Path does not exist"
 # "Path is not a directory"
 testdata_fetchsource_wrong=[
-    (workingpath.as_posix(),[".y"],""),
     (workingpath.joinpath("main.py"),[".py"],"Path is not a directory"),
     (workingpath.joinpath("dont_exist"),[".py"],"Path does not exist"),
     (workingpath.joinpath("main.py"),[".y"],"Path is not a directory"),
-    (workingpath,[".y"],"")
 ]
+test_no_file_found=[
+    (workingpath.as_posix(),[".y"]),
+    (workingpath,[".y"])
+    ]
 
 @mark.parametrize("path,extensions,expected",testdata_fetchsource_correct)
 def test_fetch_source_files(path,extensions,expected):
@@ -24,7 +26,12 @@ def test_fetch_source_files(path,extensions,expected):
     
 @mark.parametrize("path,extensions,expected",testdata_fetchsource_wrong)
 def test_fetch_source_files_error(path,extensions,expected):
-    with raises(AssertionError) as e:
-        f_list=(fetch_source_files(path,extensions=extensions))
-        assert f_list !=0, ""
-    assert str(e.value) == expected
+    with raises((FileNotFoundError,NotADirectoryError),match=expected) as e:
+        fetch_source_files(path,extensions=extensions)
+        
+
+    
+@mark.parametrize("path,extensions",test_no_file_found)
+def test_no_file_found(path,extensions):
+    f_list=list(fetch_source_files(path,extensions=extensions))
+    assert len(f_list) == 0

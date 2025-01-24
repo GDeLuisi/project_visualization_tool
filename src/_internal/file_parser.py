@@ -4,8 +4,10 @@ def fetch_source_files(project_path:Union[Path|str],extensions:list[str])->Gener
     path = project_path
     if isinstance(path,str):
         path = Path(project_path)
-    assert path.exists(), "Path does not exist"
-    assert path.is_dir(), "Path is not a directory"
+    if not path.exists():
+        raise FileNotFoundError("Path does not exist")
+    if not path.is_dir():
+        raise NotADirectoryError("Path is not a directory")
     for item in path.iterdir():
         if item.is_dir():
             for i in fetch_source_files(item,extensions):
