@@ -1,0 +1,23 @@
+[project]
+name = "project_visualization_tool_GDeLuisi"
+dynamic = ["version"]
+authors = [
+{ name="De Luisi Gerardo", email="deluisigerardo@gmail.com" },
+]
+description = "Visualization tool for git-managed projects"
+readme = "README.md"
+requires-python = ">=3.12"
+classifiers = [
+"Programming Language :: Python :: 3.12",
+"License :: OSI Approved :: MIT License",
+"Operating System :: OS Independent",
+]
+keywords = ["git","projects","visualization-tool"]
+dependencies = [
+    "dash",
+    
+]
+[project.urls]
+Homepage = "https://github.com/GDeLuisi/project_visualization_tool"
+Issues = "https://github.com/GDeLuisi/project_visualization_tool/issues"
+Repository = "https://github.com/GDeLuisi/project_visualization_tool"
