@@ -17,6 +17,10 @@ dependencies = [
     "dash",
     
 ]
+[tool.pytest.ini_options]
+pythonpath = [
+  ".", "src",
+]
 [project.urls]
 Homepage = "https://github.com/GDeLuisi/project_visualization_tool"
 Issues = "https://github.com/GDeLuisi/project_visualization_tool/issues"
