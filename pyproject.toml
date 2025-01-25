@@ -21,6 +21,9 @@ dependencies = [
 pythonpath = [
   ".", "src","src/_internal"
 ]
+testpaths = [
+  "tests"
+]
 [project.urls]
 Homepage = "https://github.com/GDeLuisi/project_visualization_tool"
 Issues = "https://github.com/GDeLuisi/project_visualization_tool/issues"

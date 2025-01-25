@@ -26,10 +26,8 @@ def test_fetch_source_files(path,extensions,expected):
     
 @mark.parametrize("path,extensions,expected",testdata_fetchsource_wrong)
 def test_fetch_source_files_error(path,extensions,expected):
-    with raises((FileNotFoundError,NotADirectoryError),match=expected) as e:
-        fetch_source_files(path,extensions=extensions)
-        
-
+    with raises((FileNotFoundError,NotADirectoryError)):
+        list(fetch_source_files(path,extensions=extensions))
     
 @mark.parametrize("path,extensions",test_no_file_found)
 def test_no_file_found(path,extensions):

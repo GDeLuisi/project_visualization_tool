@@ -1,0 +1,101 @@
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/.github Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/.github is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/.github/workflows Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/.github/workflows is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src/_internal Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src/_internal is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src/_internal/__pycache__ Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src/_internal/__pycache__ is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/tests Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/tests is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/tests/__pycache__ Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/tests/__pycache__ is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/.github Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/.github is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/.github/workflows Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/.github/workflows is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src/_internal Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src/_internal is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src/_internal/__pycache__ Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src/_internal/__pycache__ is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/tests Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/tests is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/tests/__pycache__ Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/tests/__pycache__ is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/.github Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/.github is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/.github/workflows Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/.github/workflows is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src/_internal Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src/_internal is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src/_internal/__pycache__ Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src/_internal/__pycache__ is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/tests Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/tests is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/tests/__pycache__ Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/tests/__pycache__ is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/.github Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/.github is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/.github/workflows Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/.github/workflows is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src/_internal Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src/_internal is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src/_internal/__pycache__ Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src/_internal/__pycache__ is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/tests Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/tests is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/tests/__pycache__ Exists
+INFO     root:file_parser.py:14 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/tests/__pycache__ is a directory
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/main.py Exists
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:5 Entered fetch_source_files function
+INFO     root:file_parser.py:11 Path C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/main.py Exists
