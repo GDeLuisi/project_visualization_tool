@@ -1,3 +1,10 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+[tool.hatch.version]
+path = "main.py"
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
 [project]
 name = "project_visualization_tool_GDeLuisi"
 dynamic = ["version"]
@@ -24,6 +31,8 @@ pythonpath = [
 testpaths = [
   "tests"
 ]
+[project.scripts]
+project-viewer = "src.app.cli:main"
 [project.urls]
 Homepage = "https://github.com/GDeLuisi/project_visualization_tool"
 Issues = "https://github.com/GDeLuisi/project_visualization_tool/issues"

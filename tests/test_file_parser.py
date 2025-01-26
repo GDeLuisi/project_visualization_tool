@@ -4,8 +4,8 @@ from _internal.file_parser import fetch_source_files
 from typing import Generator
 workingpath=Path.cwd()
 testdata_fetchsource_correct=[
-    (workingpath,[".py"],6),
-    (workingpath.as_posix(),[".py",".toml"],7),
+    (workingpath,[".py"],9),
+    (workingpath.as_posix(),[".py",".toml"],10),
 ]
 # "Path does not exist"
 # "Path is not a directory"

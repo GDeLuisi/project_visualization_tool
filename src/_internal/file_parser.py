@@ -21,7 +21,7 @@ def fetch_source_files(project_path:Union[Path|str],extensions:set[str],exclude_
         elif item.suffix in extensions:
             yield item
 def find_setd():
-    pass
+    print("setd found")
 
 def find_custom_setd():
     pass
