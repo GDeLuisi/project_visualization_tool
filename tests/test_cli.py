@@ -5,12 +5,10 @@ from pathlib import Path
 workingpath=Path.cwd()
 
 def test_cli_function():
-    argv.clear()
     main()
 
 def test_cli():
-    argv.append(workingpath.as_posix())
-    main()
+    main([workingpath.as_posix()])
 
 def test_cli_no_dir():
     with raises(SystemExit) as e:
@@ -20,4 +18,4 @@ def test_cli_no_dir():
 def test_cli_no_git():
     with raises(SystemExit) as e:
         main([f"{workingpath.parent.as_posix()}"])
-    assert e.value.code == 2
+    assert e.value.code ==2

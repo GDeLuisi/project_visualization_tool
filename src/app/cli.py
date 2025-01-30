@@ -30,7 +30,7 @@ def main(args:Optional[Sequence[str]]=None):
         error(f"Chosen directory is not a git repository")
         exit(2)
     try:
-        subprocess.check_call(["git","-c",dir,"log"])
+        subprocess.check_call(["git","-C",dir,"log"])
     except subprocess.CalledProcessError:
         error("Git repo is corrupted, check for your git config files")
         exit(3)
