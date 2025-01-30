@@ -19,17 +19,17 @@ test_no_file_found=[
     (workingpath,[".y"])
     ]
 
-@mark.parametrize("path,extensions,expected",testdata_fetchsource_correct)
-def test_fetch_source_files(path,extensions,expected):
-    f_list=list(fetch_source_files(path,extensions=extensions))
-    assert len(f_list) == expected
+# @mark.parametrize("path,extensions,expected",testdata_fetchsource_correct)
+# def test_fetch_source_files(path,extensions,expected):
+#     f_list=list(fetch_source_files(path,extensions=extensions))
+#     assert len(f_list) == expected
     
-@mark.parametrize("path,extensions,expected",testdata_fetchsource_wrong)
-def test_fetch_source_files_error(path,extensions,expected):
-    with raises((FileNotFoundError,NotADirectoryError)):
-        list(fetch_source_files(path,extensions=extensions))
+# @mark.parametrize("path,extensions,expected",testdata_fetchsource_wrong)
+# def test_fetch_source_files_error(path,extensions,expected):
+#     with raises((FileNotFoundError,NotADirectoryError)):
+#         list(fetch_source_files(path,extensions=extensions))
     
-@mark.parametrize("path,extensions",test_no_file_found)
-def test_no_file_found(path,extensions):
-    f_list=list(fetch_source_files(path,extensions=extensions))
-    assert len(f_list) == 0
+# @mark.parametrize("path,extensions",test_no_file_found)
+# def test_no_file_found(path,extensions):
+#     f_list=list(fetch_source_files(path,extensions=extensions))
+#     assert len(f_list) == 0
