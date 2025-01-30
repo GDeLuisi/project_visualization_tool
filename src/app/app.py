@@ -1,5 +1,5 @@
 from webbrowser import open
 
-def open_browser():
+def start_app(repo_path:str):
     # open(url="https://google.com")
     pass
