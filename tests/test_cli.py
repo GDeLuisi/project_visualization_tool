@@ -5,6 +5,7 @@ from pathlib import Path
 workingpath=Path.cwd()
 
 def test_cli_function():
+    argv.clear()
     main()
 
 def test_cli():

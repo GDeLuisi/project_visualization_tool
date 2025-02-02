@@ -23,7 +23,7 @@ jobs:
       run: |
         git config --global core.autocrlf false
         git config --global core.eol lf
-    - name: Install dependenciesW
+    - name: Install dependencies
       shell: bash
       run: |
         python -m pip install --upgrade pip
@@ -38,4 +38,6 @@ jobs:
     - name: Test with pytest
       run: |
         pytest --log-level INFO --log-file tests/report.txt
+    - name: Read reports
+      run: |
         cat tests/report.txt
