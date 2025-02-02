@@ -38,6 +38,7 @@ jobs:
     - name: Test with pytest
       run: |
         pytest --log-level INFO --log-file tests/report.txt
-    - name: Read reports
+    - if: success() || failure()
+      name: Read reports
       run: |
         cat tests/report.txt
