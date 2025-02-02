@@ -2,6 +2,18 @@ name: Python application Development Test
 on:
   push:
     branches: [ "development" ]
+  workflow_dispatch:
+    inputs:
+      log_level:
+        description: "The Log level to use on report creation filter"
+        default: "DEBUG"
+        type: choice
+        options:
+          - "DEBUG"
+          - "INFO"
+          - "WARNING"
+          - "ERROR"
+          - "NOTICE"
 permissions:
   contents: read
 jobs:
@@ -36,8 +48,9 @@ jobs:
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Test with pytest
+      shell: bash
       run: |
-        pytest --log-level INFO --log-file tests/report.txt
+        pytest --log-level ${{ inputs.log_level }} --log-file tests/report.txt
     - if: success() || failure()
       name: Read reports
       run: |

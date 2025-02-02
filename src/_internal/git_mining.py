@@ -4,7 +4,6 @@ import pydriller.metrics.process.history_complexity as history
 import pydriller.metrics.process.commits_count as comcnt
 from .typing import Author
 from typing import Optional,Generator,Union
-from logging import warning,info
 from pathlib import Path
 from datetime import datetime
 
