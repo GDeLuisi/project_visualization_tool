@@ -60,8 +60,11 @@ jobs:
       name: Read reports
       run: |
         jq -s '.[]| select( .level == "ERROR" or .level == "CRITICAL") | .function,.message,.logger' logs/logs.log.jsonl > errors.log
-        jq -s '.[]| select( .level == "INFO" or .level == "DEBUG" or .level == "WARNING") | .function,.message,.logger' logs/logs.log.jsonl > infos.log
+        jq -s '.[]| select( .level == "INFO" or .level == "DEBUG" or .level == "WARNING") |select( .logger != "pydriller.repository") | .function,.message,.logger' logs/logs.log.jsonl > infos.log
+        jq -s '.[]| select( .logger == "pydriller.repository" or .logger == "git.cmd") > repo.log
         echo -e "\nERRORS:\n"
         cat errors.log
-        echo -e "\INFO:\n"
+        echo -e "\nINFO:\n"
         cat infos.log
+        echo -e "\nREPO INFO:\n"
+        cat repo.log

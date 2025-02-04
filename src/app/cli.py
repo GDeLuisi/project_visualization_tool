@@ -1,6 +1,5 @@
 from argparse import ArgumentParser,FileType
 from .app import start_app
-from src._internal.file_parser import find_setd
 from pathlib import Path
 from logging import error,info
 from typing import Optional,Sequence

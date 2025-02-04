@@ -1,5 +1,5 @@
 from app.cli import main
-from pytest import mark,raises,fixture
+from pytest import raises,fixture
 from sys import argv
 from pathlib import Path
 workingpath=Path.cwd()
