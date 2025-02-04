@@ -55,8 +55,7 @@ jobs:
     - name: Test with pytest
       shell: bash
       run: |
-        /usr/bin/git -c protocol.version=2 fetch --all
-        /usr/bin/git -c protocol.version=2 pull --all
+        /usr/bin/git -c protocol.version=2 fetch --all --unshallow 
         pytest
     - if: success() || failure()
       name: Read reports
