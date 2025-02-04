@@ -71,6 +71,8 @@ class MyJSONFormatter(logging.Formatter):
                 message[key] = val
 
         return message
-with open("./logging_configs/logs_config_file.json") as f:
+    
+from pathlib import Path
+with Path.cwd().joinpath("src","utility","logging_configs","logs_config_file.json").open() as f:
     logging.config.dictConfig(json.load(f))
 
