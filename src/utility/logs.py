@@ -76,7 +76,9 @@ class MyJSONFormatter(logging.Formatter):
 from pathlib import Path
 
 def setup_logging():
-    config_file = Path.cwd().joinpath("src","utility","logging_configs","logs_config_file.json")
+    parent_dir=Path(__file__).parent
+    parent_dir.parent.parent.joinpath("logs").mkdir(exist_ok=True)
+    config_file = parent_dir.joinpath("logging_configs","logs_config_file.json")
     with open(config_file) as f_in:
         config = json.load(f_in)
 
