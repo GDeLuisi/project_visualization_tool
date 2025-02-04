@@ -31,8 +31,7 @@ def test_get_author_commits(repo_miner):
     gdlist=list(repo_miner.get_author_commits("GeggeDL"))
     delist=list(repo_miner.get_author_commits("Gerardo De Luisi"))
     totlist=list(repo_miner.get_commits_hash())
-    logger.debug(f"Totlist: {len(totlist)}")
-    logger.debug(f"Sum: {len(gdlist)+len(delist)}")
+    logger.debug(f"Totlist: {len(totlist)}\nSum: {len(gdlist)+len(delist)}")
     assert len(totlist) == (len(gdlist)+len(delist))
 
 def test_get_truck_factor():
