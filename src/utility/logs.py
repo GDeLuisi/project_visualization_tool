@@ -2,6 +2,7 @@ import datetime as dt
 import json
 import logging
 import logging.config
+import atexit
 from typing import override
 
 LOG_RECORD_BUILTIN_ATTRS = {
@@ -73,6 +74,17 @@ class MyJSONFormatter(logging.Formatter):
         return message
     
 from pathlib import Path
-with Path.cwd().joinpath("src","utility","logging_configs","logs_config_file.json").open() as f:
-    logging.config.dictConfig(json.load(f))
+
+def setup_logging():
+    config_file = Path.cwd().joinpath("src","utility","logging_configs","logs_config_file.json")
+    with open(config_file) as f_in:
+        config = json.load(f_in)
+
+    logging.config.dictConfig(config)
+    queue_handler = logging.getHandlerByName("queue_handler")
+    if queue_handler is not None:
+        queue_handler.listener.start()
+        atexit.register(queue_handler.listener.stop)
+
+
 

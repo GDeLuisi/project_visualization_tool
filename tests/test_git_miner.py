@@ -1,11 +1,11 @@
 from _internal import git_mining as gm
 from pathlib import Path
-import utility.logs
+import utility.logs as log
 import logging
 from pytest import fixture
 from pydriller import Git
 from _internal.typing import Author
-
+log.setup_logging()
 logger=logging.getLogger("Miner tester")
 @fixture
 def repo_miner():
