@@ -40,7 +40,7 @@ jobs:
       shell: bash
       run: |
         python -m pip install --upgrade pip
-        pip install flake8 pytest
+        pip install flake8 pytest pytest-cov
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Lint with flake8
       run: |
@@ -52,6 +52,16 @@ jobs:
       shell: bash
       run: |
         pytest
+    - name: Check coverage reports
+      shell: bash
+      run: |
+        for key in ${array[@]};do 
+          key=$(echo $key |sed 's/\\/\\\\/g')
+          percentage="$(echo $key;jq ".files.\"$key\" | .summary.percent_covered" coverage.json)"
+          if [ $percentage -lt 75 ];then
+            >&2 echo "File $key tests have not covered the minimum of policy percentage coverage. Please adjust your files accordingly"
+            exit(1)
+        done
     - if: failure()
       name: Read reports
       shell: bash

@@ -34,6 +34,9 @@ def test_get_author_commits(repo_miner):
     logger.debug(f"Totlist: {len(totlist)}\nSum: {len(gdlist)+len(delist)}")
     assert len(totlist) == (len(gdlist)+len(delist))
 
+def test_get_commit_between(repo_miner):
+    assert len(list(repo_miner.get_commits_between("4a6869eaa1bc585c5552d69c0c841e19a3bb642d","f188112d478439ab9b6d5dad88cf14c46a0efa44")))>0
+    
 def test_get_truck_factor():
     pass
 
@@ -46,8 +49,8 @@ def test_get_diff(repo_miner):
     # assert diff != {}
     pass
 
-def test_get_file_authors():
-    pass
+def test_get_file_authors(repo_miner):
+    assert repo_miner.get_file_authors(Path.cwd().joinpath(".github","workflows","test-dev.yml")) == set([Author("deluisigerardo@gmail.com","Gerardo De Luisi"),Author("102797969+GDeLuisi@users.noreply.github.com","GeggeDL")])
 
 def test_get_bug_introducing_commit():
     pass
