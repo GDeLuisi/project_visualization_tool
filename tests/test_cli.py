@@ -13,7 +13,7 @@ def test_cli():
 
 def test_cli_no_dir():
     with raises(SystemExit) as e:
-        main([f"{workingpath.joinpath("main.py").as_posix()}"])
+        main([f"{workingpath.joinpath('main.py').as_posix()}"])
     assert e.value.code == 1
     
 def test_cli_no_git():
