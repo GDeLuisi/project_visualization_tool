@@ -47,8 +47,10 @@ test_path_content.append(item)
 def test_find_comments(path):
     try:
         comments=find_comments_with_locations(path)
-        logger.debug(f"Found {len(comments)} comments for file {path.as_posix() if isinstance(path,Path) else path}")
-        logger.debug("Look for comments info in .findings field of this json",extra={"findings":[f"Found comments from {loc[0]} to {loc[1]} in {path.as_posix()if isinstance(path,Path) else path}. Comment: {loc[2]}" for loc in comments]})
+        if isinstance(path,str):
+            path = Path(path)
+        logger.debug(f"Found {len(comments)} comments for file {path.as_posix()}")
+        logger.debug("Look for comments info in .findings field of this json",extra={"findings":[f"Found comments from {loc[0]} to {loc[1]} in {path.as_posix()}. Comment: {loc[2]}" for loc in comments]})
     except FileNotFoundError as e:
         if isinstance(path,str):
             path = Path(path)
