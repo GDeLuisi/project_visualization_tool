@@ -26,12 +26,14 @@ jobs:
         force: false
     - if: runner.os == 'Windows'
       name: Config for Windows
+      shell: bash
       run: |
         git config --global core.autocrlf false
         git config --global core.eol lf
         "C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --all --unshallow 
     - if: runner.os != 'Windows'
       name: Config for Unix
+      shell: bash
       run: |
         /usr/bin/git -c protocol.version=2 fetch --all --unshallow 
     - name: Install dependencies
