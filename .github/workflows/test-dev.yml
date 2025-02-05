@@ -44,10 +44,11 @@ jobs:
     - name: Test with pytest
       shell: bash
       run: |
-        /usr/bin/git -c protocol.version=2 fetch --all --unshallow 
+        git -c fetch --all --unshallow 
         pytest
     - if: failure()
       name: Read reports
+      shell: bash
       run: |
         jq -s '.[]| select( .level == "ERROR" or .level == "CRITICAL") ' logs/logs.log.jsonl > errors.log
         jq -s '.[]| select( .level == "INFO" or .level == "DEBUG" or .level == "WARNING") |select( .logger != "pydriller.repository" and .logger != "git.cmd")' logs/logs.log.jsonl > infos.log
