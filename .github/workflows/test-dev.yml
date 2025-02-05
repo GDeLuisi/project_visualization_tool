@@ -61,6 +61,7 @@ jobs:
           if [ $percentage -lt 75 ];then
             >&2 echo "File $key tests have not covered the minimum of policy percentage coverage. Please adjust your files accordingly"
             exit(1)
+          fi
         done
     - if: failure()
       name: Read reports
