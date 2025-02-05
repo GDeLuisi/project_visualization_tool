@@ -25,10 +25,15 @@ jobs:
         version: "latest"
         force: false
     - if: runner.os == 'Windows'
-      name: Git config for Windows
+      name: Config for Windows
       run: |
         git config --global core.autocrlf false
         git config --global core.eol lf
+        "C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --all --unshallow 
+    - if: runner.os != 'Windows'
+      name: Config for Unix
+      run: |
+        /usr/bin/git -c protocol.version=2 -c fetch --all --unshallow 
     - name: Install dependencies
       shell: bash
       run: |
@@ -44,7 +49,6 @@ jobs:
     - name: Test with pytest
       shell: bash
       run: |
-        git -c fetch --all --unshallow 
         pytest
     - if: failure()
       name: Read reports
