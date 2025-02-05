@@ -33,7 +33,7 @@ jobs:
     - if: runner.os != 'Windows'
       name: Config for Unix
       run: |
-        /usr/bin/git -c protocol.version=2 -c fetch --all --unshallow 
+        /usr/bin/git -c protocol.version=2 fetch --all --unshallow 
     - name: Install dependencies
       shell: bash
       run: |
