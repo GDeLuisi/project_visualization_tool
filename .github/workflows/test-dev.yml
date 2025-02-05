@@ -56,7 +56,7 @@ jobs:
       shell: bash
       run: |
         for key in ${array[@]};do 
-          key="$(echo $key |sed 's/\\/\\\\/g')""
+          key="$(echo $key |sed 's/\\/\\\\/g')"
           percentage="$(jq ".files.\"$key\" | .summary.percent_covered" coverage.json)"
           if [ $percentage -lt 75 ];then
             >&2 echo "File $key tests have not covered the minimum of policy percentage coverage. Please adjust your files accordingly"
