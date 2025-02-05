@@ -2,18 +2,7 @@ name: Python application Development Test
 on:
   push:
     branches: [ "development" ]
-  workflow_dispatch:
-    inputs:
-      log_level:
-        description: "The Log level to use on report creation filter"
-        default: "DEBUG"
-        type: choice
-        options:
-          - "DEBUG"
-          - "INFO"
-          - "WARNING"
-          - "ERROR"
-          - "NOTICE"
+  
 permissions:
   contents: read
 jobs:
@@ -22,7 +11,7 @@ jobs:
       fail-fast: false
       matrix:
         os: ["ubuntu-latest","windows-latest","macos-latest"]
-        p-version: ["3.12","3.13"]
+        p-version: ["3.8","3.9","3.10","3.11","3.12","3.13"]
     runs-on: ${{matrix.os}}
     steps:
     - uses: actions/checkout@v4
@@ -57,7 +46,7 @@ jobs:
       run: |
         /usr/bin/git -c protocol.version=2 fetch --all --unshallow 
         pytest
-    - if: success() || failure()
+    - if: failure()
       name: Read reports
       run: |
         jq -s '.[]| select( .level == "ERROR" or .level == "CRITICAL") ' logs/logs.log.jsonl > errors.log

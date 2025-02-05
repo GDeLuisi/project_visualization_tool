@@ -74,19 +74,21 @@ class MyJSONFormatter(logging.Formatter):
         return message
     
 from pathlib import Path
-
+LOG_CONFIGURED=False
 def setup_logging():
-    parent_dir=Path(__file__).parent
-    parent_dir.parent.parent.joinpath("logs").mkdir(exist_ok=True)
-    config_file = parent_dir.joinpath("logging_configs","logs_config_file.json")
-    with open(config_file) as f_in:
-        config = json.load(f_in)
+    global LOG_CONFIGURED
+    if not LOG_CONFIGURED:
+        parent_dir=Path(__file__).parent
+        parent_dir.parent.parent.joinpath("logs").mkdir(exist_ok=True)
+        config_file = parent_dir.joinpath("logging_configs","logs_config_file.json")
+        with open(config_file) as f_in:
+            config = json.load(f_in)
 
-    logging.config.dictConfig(config)
-    queue_handler = logging.getHandlerByName("queue_handler")
-    if queue_handler is not None:
-        queue_handler.listener.start()
-        atexit.register(queue_handler.listener.stop)
-
+        logging.config.dictConfig(config)
+        queue_handler = logging.getHandlerByName("queue_handler")
+        if queue_handler is not None:
+            queue_handler.listener.start()
+            atexit.register(queue_handler.listener.stop)
+        LOG_CONFIGURED=True
 
 

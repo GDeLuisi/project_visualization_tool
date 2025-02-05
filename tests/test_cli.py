@@ -3,7 +3,7 @@ from pytest import raises,fixture
 from sys import argv
 from pathlib import Path
 workingpath=Path.cwd()
-
+#single line
 def test_cli_function():
     argv.clear()
     main()
