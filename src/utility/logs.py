@@ -120,12 +120,12 @@ def setup_logging():
         config_file = parent_dir.joinpath("logging_configs","logs_config_file.json") if sys.version_info.minor >=12 else parent_dir.joinpath("logging_configs","logs_config_file_old.json")
         with open(config_file) as f_in:
             config = json.load(f_in)
-
         logging.config.dictConfig(config)
-        queue_handler = logging.getHandlerByName("queue_handler")
-        if queue_handler is not None:
-            queue_handler.listener.start()
-            atexit.register(queue_handler.listener.stop)
+        if sys.version_info.minor >=12 :
+            queue_handler = logging.getHandlerByName("queue_handler")
+            if queue_handler is not None:
+                queue_handler.listener.start()
+                atexit.register(queue_handler.listener.stop)
         LOG_CONFIGURED=True
 
 
