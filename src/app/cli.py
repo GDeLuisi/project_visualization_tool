@@ -3,9 +3,15 @@ from .app import start_app
 from pathlib import Path
 from logging import error,info
 from typing import Optional,Sequence
+from sys import version_info
 import subprocess
+import logging
 
 def main(args:Optional[Sequence[str]]=None):
+    
+    if version_info.minor<10:
+        logging.exception(f"System Python version {version_info.major}.{version_info.minor} < Python3.10.x . It is mandatory to at least use Python versions > 3.10.x for a correct usage of the application")
+        exit(5)
     #check if git is installed
     git_version=""
     try:

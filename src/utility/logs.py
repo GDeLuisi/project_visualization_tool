@@ -1,9 +1,13 @@
 import datetime as dt
+import sys
 import json
 import logging
 import logging.config
 import atexit
-
+from logging.config import ConvertingList, ConvertingDict, valid_ident
+from logging.handlers import QueueHandler, QueueListener
+from queue import Queue
+from atexit import register
 LOG_RECORD_BUILTIN_ATTRS = {
     "args",
     "asctime",
@@ -30,6 +34,41 @@ LOG_RECORD_BUILTIN_ATTRS = {
     "taskName",
 }
 
+
+
+
+def _resolve_handlers(l):
+    if not isinstance(l, ConvertingList):
+        return l
+
+    # Indexing the list performs the evaluation.
+    return [l[i] for i in range(len(l))]
+
+
+class QueueListenerHandler(QueueHandler):
+
+    def __init__(self, handlers, respect_handler_level=False, auto_run=True, queue=Queue(-1)):
+        super().__init__(queue)
+        handlers = _resolve_handlers(handlers)
+        self._listener = QueueListener(
+            self.queue,
+            *handlers,
+            respect_handler_level=respect_handler_level)
+        if auto_run:
+            self.start()
+            register(self.stop)
+
+
+    def start(self):
+        self._listener.start()
+
+
+    def stop(self):
+        self._listener.stop()
+
+
+    def emit(self, record):
+        return super().emit(record)
 
 class MyJSONFormatter(logging.Formatter):
     def __init__(
@@ -78,7 +117,7 @@ def setup_logging():
     if not LOG_CONFIGURED:
         parent_dir=Path(__file__).parent
         parent_dir.parent.parent.joinpath("logs").mkdir(exist_ok=True)
-        config_file = parent_dir.joinpath("logging_configs","logs_config_file.json")
+        config_file = parent_dir.joinpath("logging_configs","logs_config_file.json") if sys.version_info.minor >=12 else parent_dir.joinpath("logging_configs","logs_config_file_old.json")
         with open(config_file) as f_in:
             config = json.load(f_in)
 
