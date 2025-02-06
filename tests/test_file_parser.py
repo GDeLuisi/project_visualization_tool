@@ -44,7 +44,7 @@ test_path_content=list(test_path.iterdir())
 item=test_path_content.pop().as_posix()
 test_path_content.append(item)
 @mark.parametrize("path",test_path_content)
-def test_find_comments(path):
+def test_find_comments_in_file(path):
     try:
         comments=find_file_comments_with_locations(path)
         if isinstance(path,str):

@@ -60,7 +60,7 @@ def find_file_comments_with_locations(filename:Union[str,Path])->list[tuple[int,
         filename (Union[str,Path]): path to the file
 
     Raises:
-        FileNotFoundError: if file si not readable
+        FileNotFoundError: if file is not readable
 
     Returns:
         list[tuple[int,int,str]]: a list of triplets organized as follows: comment start n° line, comment end n° line, comment string
