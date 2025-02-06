@@ -3,9 +3,9 @@ from typing import Union,Generator,Iterator,Literal
 import re
 import os
 import logging
-
+from .typing import ACCEPTED_EXTENSIONS
 logger = logging.getLogger("File Parser")
-ACCEPTED_EXTENSIONS=Literal[".js",".py",".sh",".sql",".c",".cpp",".php",".html",".java",".rb"]
+
 def fetch_source_files(project_path:Union[Path|str],extensions:set[str],exclude_dirs:set[str]=[".venv",".git",".pytest_cache"])->Generator[Path,None,None]:
     # info("Entered fetch_source_files function")
     path = project_path
