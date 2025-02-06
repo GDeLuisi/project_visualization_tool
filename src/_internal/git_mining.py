@@ -6,7 +6,11 @@ from .typing import Author
 from typing import Optional,Generator,Union
 from pathlib import Path
 from datetime import datetime
+from git import Git,Repo,Blob
+from io import BytesIO
+import re
 
+#TODO implemente a threaded version for optimization
 class RepoMiner():
     def __init__(self,repo_path:Union[Path,str]):
         self.repo_path=repo_path
@@ -42,8 +46,27 @@ class RepoMiner():
     def get_last_modified(self,commit:str):
         git_repo=git.Git(self.repo_path)
         return git_repo.get_commits_last_modified_lines(git_repo.get_commit(commit))
-    
-
+    #TODO include option to use multiple filenames
+    def get_source_code(self,file:Union[str,Path],commit:Optional[str]=None)->list[str]:
+        text=[]
+        file_path=file
+        if isinstance(file,str):
+            file_path=Path(file)
+        git_repo=Repo(self.repo_path)
+        target_commit=git_repo.commit(commit)
+        tree=target_commit.tree
+        #FIXME: improve search method for file
+        for t in tree.traverse():
+            if isinstance(t,Blob) and Path(t.abspath).as_posix()==file_path.as_posix():
+                with BytesIO(t.data_stream.read()) as f:
+                    text=re.split(string=f.read().decode(),pattern=r'\r\n|\n|\r')
+        return text
+        # file_path=file
+        # if isinstance(file,Path):
+        #     file_path=file.as_posix()
+        # repo=git.Repository(self.repo_path,single=commit,order="reverse")
+        # list(repo.traverse_commits())[0]
+        # target_commit.
 # def get_diff(repository:str,filepath:str)->dict[str,dict[str, list[tuple[int, str]]]]:
 #     repo=git.Repository(path_to_repo=repository,filepath=filepath,only_no_merge=True,skip_whitespaces=True,order="reverse")
 #     relative_filepath=filepath.removeprefix(repository)[1:].replace("/","\\")

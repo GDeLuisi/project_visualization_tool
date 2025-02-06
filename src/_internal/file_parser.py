@@ -1,10 +1,11 @@
 from pathlib import Path
-from typing import Union,Generator,Iterator
+from typing import Union,Generator,Iterator,Literal
 import re
 import os
 import logging
 
 logger = logging.getLogger("File Parser")
+ACCEPTED_EXTENSIONS=Literal[".js",".py",".sh",".sql",".c",".cpp",".php",".html",".java",".rb"]
 def fetch_source_files(project_path:Union[Path|str],extensions:set[str],exclude_dirs:set[str]=[".venv",".git",".pytest_cache"])->Generator[Path,None,None]:
     # info("Entered fetch_source_files function")
     path = project_path
@@ -52,14 +53,14 @@ def _comment_finder(text:Union[str,list[str]],single_line_pattern:list[str],mult
             comments.append((start_line,end_line, matched_string))
     return comments
 
-def find_comments_with_locations(filename:Union[str,Path])->list[tuple[int,int,str]]:
+def find_file_comments_with_locations(filename:Union[str,Path])->list[tuple[int,int,str]]:
     """Find all comments inside a file discriminating comments markers from code language inferred from the file extension 
 
     Args:
         filename (Union[str,Path]): path to the file
 
     Raises:
-        FileNotFoundError: if path is not a file
+        FileNotFoundError: if file si not readable
 
     Returns:
         list[tuple[int,int,str]]: a list of triplets organized as follows: comment start n° line, comment end n° line, comment string
@@ -74,7 +75,22 @@ def find_comments_with_locations(filename:Union[str,Path])->list[tuple[int,int,s
     
     with open(filepath, 'r') as file:
         content = file.readlines()
-    
+        
+    return find_comments_with_locations(content,ext=ext)
+
+def find_comments_with_locations(text:Union[str|list[str]],ext:ACCEPTED_EXTENSIONS)->list[tuple[int,int,str]]:
+    """Find all comments inside a string discriminating comments markers from code language inferred from the file extension 
+
+    Args:
+        text (Union[str | list[str]]): text to parse
+        ext (ACCEPTED_EXTENSIONS): virtual extension of the text 
+
+    Returns:
+        list[tuple[int,int,str]]: a list of triplets organized as follows: comment start n° line, comment end n° line, comment string
+    """    
+    content=text
+    if isinstance(text,str):
+        content=re.split(string=text,pattern=r'\r\n|\n|\r')
     comments:list[tuple[int,int,str]] = []
     
     if ext in ['.py', '.rb',".sh"]:

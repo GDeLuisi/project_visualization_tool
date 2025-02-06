@@ -2,7 +2,7 @@ from _internal import git_mining as gm
 from pathlib import Path
 import utility.logs as log
 import logging
-from pytest import fixture
+from pytest import fixture,mark
 from pydriller import Git
 from _internal.typing import Author
 log.setup_logging()
@@ -70,3 +70,8 @@ def test_get_last_modified(repo_miner):
         raise Exception(e)
     logger.debug(commits)
     assert commits!=set()
+
+@mark.parametrize("commit",["13beba471c644abfc15c07d4559b77a4e7faa787",None])
+def test_get_source_code(repo_miner,commit):
+    text=repo_miner.get_source_code(Path.cwd().joinpath("tests","test_dummy.py"),commit)
+    assert text == ['#TODO dummy test', 'def test_dummy():', '    pass', '', '"""', 'TODO multiple line test', '"""', '']
