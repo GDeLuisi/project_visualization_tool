@@ -117,9 +117,9 @@ def find_comments_with_locations(text:Union[str|list[str]],ext:ACCEPTED_EXTENSIO
 
 def _find_satd_inline(text:str,tags):
     for tag in tags:
-        mt:re.Match = re.match(f"^({tag}.*)",text)
+        mt:re.Match = re.match(f"^#({tag}.*)",text)
         if mt and isinstance(mt,re.Match):
-            return mt.group()
+            return mt.group()[1:]
 def _find_satd(comments:list[tuple[int,int,str]],tags:list[str])->dict[int,str]:
     satds:dict[int,str]=dict()
     for start,end,comment in comments:
@@ -145,6 +145,7 @@ def find_satd_file(filepath:Union[Path|str],tags:set[str]={"TODO","FIXME","HACK"
         dict[int,str]: dictionary with line as key and SATD content as value
     """    
     comments=find_file_comments_with_locations(filename=filepath)
+    logger.debug(f"Found comments in file {filepath.as_posix() if isinstance(filepath,Path) else filepath}",extra={"comments":comments})
     return _find_satd(comments,tags)
 def find_satd(text:str,extension:ACCEPTED_EXTENSIONS,tags:set[str]={"TODO","FIXME","HACK","XXX"})->dict[int,str]:
     """Finds all SATD in a text
@@ -158,4 +159,5 @@ def find_satd(text:str,extension:ACCEPTED_EXTENSIONS,tags:set[str]={"TODO","FIXM
         dict[int,str]: dictionary with line as key and SATD content as value
     """    
     comments=find_comments_with_locations(ext=extension,text=text)
+    logger.debug("Found comments in text",extra={"comments":comments})
     return _find_satd(comments,tags)

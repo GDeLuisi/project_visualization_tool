@@ -87,3 +87,4 @@ def test_find_satd():
 @mark.parametrize("path",modules)
 def test_find_satd_file(path):
     satds = find_satd_file(filepath=path)
+    logger.debug(f"Found these SATDS in file {path.as_posix()}",extra={"satd":satds})
