@@ -115,9 +115,47 @@ def find_comments_with_locations(text:Union[str|list[str]],ext:ACCEPTED_EXTENSIO
     # Add more language-specific rules as needed
     return comments
 
-# def find_satd(filepath:Union[Path|str],tags:set[str]={"TODO","FIXME","HACK","XXX"})->dict[int,str]:
-#     path = filepath
-#     if isinstance(path,str):
-#         path = Path(filepath)
+def _find_satd_inline(text:str,tags):
+    for tag in tags:
+        mt:re.Match = re.match(f"^({tag}.*)",text)
+        if mt and isinstance(mt,re.Match):
+            return mt.group()
+def _find_satd(comments:list[tuple[int,int,str]],tags:list[str])->dict[int,str]:
+    satds:dict[int,str]=dict()
+    for start,end,comment in comments:
+        if start == end:
+            txt=_find_satd_inline(comment,tags)
+            if txt:
+                satds[start]=txt
+        else:
+            content=re.split(string=comment,pattern=r'\r\n|\n|\r')
+            for i,cont in enumerate(content,1):
+                txt=_find_satd_inline(cont,tags)
+                if txt:
+                    satds[start+i]=txt
+    return satds
+def find_satd_file(filepath:Union[Path|str],tags:set[str]={"TODO","FIXME","HACK","XXX"})->dict[int,str]:
+    """Finds all SATD in a file
 
-    
+    Args:
+        filepath (Union[Path | str]): path to the file
+        tags (set[str], optional): tags used to mark SATD. Defaults to {"TODO","FIXME","HACK","XXX"}.
+
+    Returns:
+        dict[int,str]: dictionary with line as key and SATD content as value
+    """    
+    comments=find_file_comments_with_locations(filename=filepath)
+    return _find_satd(comments,tags)
+def find_satd(text:str,extension:ACCEPTED_EXTENSIONS,tags:set[str]={"TODO","FIXME","HACK","XXX"})->dict[int,str]:
+    """Finds all SATD in a text
+
+    Args:
+        text str: text to analyze.
+        extension (ACCEPTED_EXTENSIONS): extention used to infer the programming language.
+        tags (set[str], optional): tags used to mark SATD. Defaults to {"TODO","FIXME","HACK","XXX"}.
+
+    Returns:
+        dict[int,str]: dictionary with line as key and SATD content as value
+    """    
+    comments=find_comments_with_locations(ext=extension,text=text)
+    return _find_satd(comments,tags)

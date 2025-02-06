@@ -1,7 +1,8 @@
 name: Python application Development Test
 on:
   push:
-    branches: [ "development" ]
+    branches: [ "development","main" ]
+  
   
 permissions:
   contents: read

@@ -1,7 +1,7 @@
 from pytest import mark,raises,fixture
 import _internal.git_mining as gm
 from pathlib import Path
-from _internal.file_parser import fetch_source_files,find_comments_with_locations,find_file_comments_with_locations
+from _internal.file_parser import fetch_source_files,find_comments_with_locations,find_file_comments_with_locations,find_satd,find_satd_file
 from typing import Generator
 from utility import logs as log
 import logging
@@ -69,3 +69,21 @@ def test_find_comments():
     logger.debug(f"Found {len(comments)} comments")
     logger.debug("Look for comments info in .findings field of this json",extra={"findings":[f"Found comments from {loc[0]} to {loc[1]}. Comment: {loc[2]}" for loc in comments]})
     assert len(comments)!=0
+
+internal_package=Path.cwd().joinpath("src","_internal")
+modules=[item for item in internal_package.iterdir() if item.is_file()]
+
+def test_find_satd():
+    path=internal_package.joinpath("file_parser.py")
+    try:
+        with path.open() as f:
+            satds=find_satd(f.read(),path.suffix)
+        assert 30 in satds
+        assert satds[30] == "TODO could be optimized using multiprocessing"
+    except FileNotFoundError as e:
+        if path.is_file():
+            raise e
+
+@mark.parametrize("path",modules)
+def test_find_satd_file(path):
+    satds = find_satd_file(filepath=path)
