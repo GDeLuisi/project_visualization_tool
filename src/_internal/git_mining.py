@@ -106,7 +106,7 @@ class RepoMiner():
         if isinstance(filepath,str):
             path=Path(filepath)
         commit_list=list(git.Repository(path_to_repo=self.repo_path,filepath=path,skip_whitespaces=True).traverse_commits())
-        pool=ProcessPoolExecutor()
+        pool=ThreadPoolExecutor()
         tasks:list[Future]=[]
         for author in authors:
             tasks.append(pool.submit(self._calculate_DOA,author=author,commit_list=commit_list))
