@@ -22,6 +22,7 @@ class RepoMiner():
         self.repo_path=repo_path
         if isinstance(repo_path,Path):
             self.repo_path=repo_path.as_posix()
+        self.commit_list=list(git.Repository(path_to_repo=self.repo_path).traverse_commits())
 
     def get_commits_hash(self,since:Optional[datetime]=None,to:Optional[datetime]=None)->Generator[str,None,None]:
         repo=git.Repository(path_to_repo=self.repo_path,since=since,to=to)
@@ -32,8 +33,7 @@ class RepoMiner():
         return (commit.hash for commit in repo.traverse_commits())
     
     def get_all_authors(self)->set[Author]:
-        repo=git.Repository(path_to_repo=self.repo_path)
-        authors:set[Author]=set((Author(commit.author.email,commit.author.name) for  commit in repo.traverse_commits()))
+        authors:set[Author]=set((Author(commit.author.email,commit.author.name) for  commit in self.commit_list))
         return authors
     
     def get_file_author(self,file:str)->Author:
@@ -106,7 +106,7 @@ class RepoMiner():
         if isinstance(filepath,str):
             path=Path(filepath)
         commit_list=list(git.Repository(path_to_repo=self.repo_path,filepath=path,skip_whitespaces=True).traverse_commits())
-        pool=ThreadPoolExecutor()
+        pool=ProcessPoolExecutor()
         tasks:list[Future]=[]
         for author in authors:
             tasks.append(pool.submit(self._calculate_DOA,author=author,commit_list=commit_list))
@@ -115,7 +115,7 @@ class RepoMiner():
             author_doa[author]=doa
         return author_doa
     
-    #FIXME need to be optimized
+    #FIXME need to be optimized avaragae of 56s of execution
     def get_truck_factor(self,doa_threshold:float=0.75)->tuple[int,dict[Author,list[str]]]:
         git_repo=Repo(self.repo_path)
         tree=git_repo.tree()
