@@ -1,4 +1,4 @@
-from  dataclasses import dataclass
+from  dataclasses import dataclass,field
 from typing import Literal
 ACCEPTED_EXTENSIONS=Literal[".js",".py",".sh",".sql",".c",".cpp",".php",".html",".java",".rb"]
 
@@ -14,14 +14,14 @@ class SATD():
 class Author():
     email:str
     name:str
-    n_files_modified:int
-    commits_authored:list[str]
+    n_files_modified:int=0
+    commits_authored:list[str]=field(default_factory=lambda: [])
     def __hash__(self):
         return hash(repr(self))
     def __eq__(self, value):
         if not isinstance(value,Author):
             raise TypeError(f"Expected value of type <Author>, received {type(value)}")
-        return hash(repr(value))==self.__hash__()
+        return self.name==value.name and self.email==value.email
     
 @dataclass
 class Commit():

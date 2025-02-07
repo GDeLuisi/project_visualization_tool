@@ -4,7 +4,7 @@ import utility.logs as log
 import logging
 from pytest import fixture,mark
 from pydriller import Git
-from _internal.typing import Author
+from _internal.data_typing import Author
 log.setup_logging()
 logger=logging.getLogger("Miner tester")
 @fixture
@@ -75,3 +75,9 @@ def test_get_last_modified(repo_miner):
 def test_get_source_code(repo_miner,commit):
     text=repo_miner.get_source_code(Path.cwd().joinpath("tests","test_dummy.py"),commit)
     assert text == ['#TODO dummy test', 'def test_dummy():', '    pass', '', '"""', 'TODO multiple line test', '"""', '']
+
+
+def test_calculate_truck_factor(repo_miner):
+    tf=repo_miner.get_truck_factor()
+    logger.error(tf)
+    assert tf[0]==1

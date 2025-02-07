@@ -3,7 +3,7 @@ from typing import Union,Generator,Iterator,Literal
 import re
 import os
 import logging
-from .typing import ACCEPTED_EXTENSIONS
+from .data_typing import ACCEPTED_EXTENSIONS
 logger = logging.getLogger("File Parser")
 
 def fetch_source_files(project_path:Union[Path|str],extensions:set[str],exclude_dirs:set[str]=[".venv",".git",".pytest_cache"])->Generator[Path,None,None]:
