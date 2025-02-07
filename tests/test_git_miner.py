@@ -16,7 +16,7 @@ def repo_miner():
 def test_get_all_authors(repo_miner):
     new_set=repo_miner.get_all_authors()
     logger.debug(new_set)
-    assert len(new_set.difference(set([Author("deluisigerardo@gmail.com","Gerardo De Luisi"),Author("102797969+GDeLuisi@users.noreply.github.com","GeggeDL")]))) == 0
+    assert len(new_set.difference(set([Author("deluisigerardo@gmail.com","Gerardo De Luisi"),Author("102797969+GDeLuisi@users.noreply.github.com","GeggeDL"),Author(email='g.deluisi@reply.it', name='Gerardo De Luisi', n_files_modified=0, commits_authored=[])]))) == 0
 
 def test_get_commit_author(repo_miner):
     try:
