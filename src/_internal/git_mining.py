@@ -84,7 +84,7 @@ class RepoMiner():
                 text=re.split(string=fl.read().decode(),pattern=r'\r\n|\n|\r')
         return text
     
-    def calculate_DL(self,input_tuple:tuple[Author,list[Commit]])->int:
+    def _calculate_DL(self,input_tuple:tuple[Author,list[Commit]])->int:
         author,commit_list=input_tuple
         contribution=0
         for commit in commit_list:
@@ -95,13 +95,12 @@ class RepoMiner():
     
     def _calculate_DOA(self,input_tuple:tuple[Author,list[Commit]])->tuple[Author,float]:
         author,commit_list=input_tuple
-        # commit_list=list(commit_list)
         creation_commit=commit_list[0] if commit_list else None
         FA=0
         DL=0
         if creation_commit and Author(creation_commit.author.email,creation_commit.author.name) == author:
             FA=1
-        DL=self.calculate_DL((author,commit_list))
+        DL=self._calculate_DL((author,commit_list))
         logger.error(f"Calculating DOA for {str(author)}")
         AC:int=abs(len(commit_list)-DL)
         DOA=3.293+1.098*FA+0.164*DL-0.321*log1p(AC)
@@ -112,19 +111,26 @@ class RepoMiner():
         file_tuple,authors=input_tuple
         filepath,commit_list=file_tuple
         commit_list=list(commit_list)
-        logger.error(f"Checking {filepath} with {len(commit_list)}")
+        logger.debug(f"Checking {filepath} with {len(commit_list)}")
         tuple_list=map(lambda item:(item,commit_list),authors)
-        
         with ThreadPoolExecutor() as executor:
             results=executor.map(self._calculate_DOA,tuple_list)
         for result in results:
             author,doa=result
             author_doa[author]=doa
         return (filepath,author_doa)
-    
-    #FIXME need to be optimized avaragae of 18s of execution
+    def get_file_commits(self,commit_list:Optional[list[Commit]]=None)->dict[str,list[Commit]]:
+        c_list=commit_list if commit_list else self.commit_list
+        file_relative_commit:dict[str,list[Commit]]=dict()
+        for commit in c_list:
+            m_files=commit.stats.files.keys()
+            for file in m_files:
+                if not file in file_relative_commit:
+                    file_relative_commit[file]=[]
+                file_relative_commit[file].append(commit)
+        return file_relative_commit
+
     def get_truck_factor(self,doa_threshold:float=0.75)->tuple[int,dict[Author,list[str]]]:
-        tree=self.repo.tree()
         authors=self.get_all_authors()
         author_files_counter:dict[Author,list[str]]=dict([(author,[]) for author in authors])
         files_author_count:dict[str,int]=dict()
@@ -132,17 +138,18 @@ class RepoMiner():
         orphans=0
         tf=0
         tot_files=0
-        for commit in self.commit_list:
-            m_files=commit.stats.files.keys()
-            for file in m_files:
-                if not file in file_relative_commit:
-                    file_relative_commit[file]=[]
-                file_relative_commit[file].append(commit)
-                files_author_count[file]=0
+        max_workers=os.cpu_count()-1
+        chunk_len=int(len(self.commit_list)/max_workers)
+        commit_chunked_list=[self.commit_list[i:i+chunk_len] for i in range(0,len(self.commit_list),chunk_len)]
+        with ThreadPoolExecutor() as executor:
+            results=executor.map(self.get_file_commits,commit_chunked_list)
+        for result in results:
+            for k,v in result.items():
+                if k not in file_relative_commit:
+                    file_relative_commit[k]=[]
+                file_relative_commit[k].extend(v)
+                files_author_count[k]=0
         tuple_list=map(lambda item:(item,authors),file_relative_commit.items())
-        logger.error(file_relative_commit.keys())
-        # logger.error(tuple_list)
-        # print(len(tuple_list),tuple_list)
         with ThreadPoolExecutor() as executor:
             results=executor.map(self.calculate_file_DOA,tuple_list)
         for result in results:
