@@ -79,5 +79,5 @@ def test_get_source_code(repo_miner,commit):
 
 def test_calculate_truck_factor(repo_miner):
     tf=repo_miner.get_truck_factor()
-    logger.error(tf)
+    logger.error(list(map(lambda k: (k[0],len(k[1])),tf[1].items())))
     assert tf[0]==1

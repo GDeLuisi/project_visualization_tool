@@ -6,12 +6,13 @@ from .data_typing import Author
 from typing import Optional,Generator,Union,Iterable
 from pathlib import Path
 from datetime import datetime
-from git import Git,Repo,Blob
+from git import Git,Repo,Blob,Commit
 from io import BytesIO
 import re
+import os
 from math import log1p
 from threading import Thread,Lock
-from concurrent.futures import ProcessPoolExecutor,ThreadPoolExecutor,Future
+from concurrent.futures import ProcessPoolExecutor,ThreadPoolExecutor
 from time import monotonic,sleep
 from logging import getLogger
 
@@ -22,7 +23,9 @@ class RepoMiner():
         self.repo_path=repo_path
         if isinstance(repo_path,Path):
             self.repo_path=repo_path.as_posix()
-        self.commit_list=list(git.Repository(path_to_repo=self.repo_path).traverse_commits())
+        self.repo=Repo(self.repo_path)
+        self.commit_list=list(self.repo.iter_commits())
+        
 
     def get_commits_hash(self,since:Optional[datetime]=None,to:Optional[datetime]=None)->Generator[str,None,None]:
         repo=git.Repository(path_to_repo=self.repo_path,since=since,to=to)
@@ -81,7 +84,8 @@ class RepoMiner():
                 text=re.split(string=fl.read().decode(),pattern=r'\r\n|\n|\r')
         return text
     
-    def calculate_DL(self,author:Author,commit_list:list[git.Commit])->int:
+    def calculate_DL(self,input_tuple:tuple[Author,list[Commit]])->int:
+        author,commit_list=input_tuple
         contribution=0
         for commit in commit_list:
             ath=commit.author
@@ -89,53 +93,67 @@ class RepoMiner():
                 contribution+=1
         return contribution
     
-    def _calculate_DOA(self,author:Author,commit_list:list[git.Commit])->tuple[Author,float]:
+    def _calculate_DOA(self,input_tuple:tuple[Author,list[Commit]])->tuple[Author,float]:
+        author,commit_list=input_tuple
+        # commit_list=list(commit_list)
         creation_commit=commit_list[0] if commit_list else None
         FA=0
         DL=0
         if creation_commit and Author(creation_commit.author.email,creation_commit.author.name) == author:
             FA=1
-        DL=self.calculate_DL(author=author,commit_list=commit_list)
+        DL=self.calculate_DL((author,commit_list))
+        logger.error(f"Calculating DOA for {str(author)}")
         AC:int=abs(len(commit_list)-DL)
         DOA=3.293+1.098*FA+0.164*DL-0.321*log1p(AC)
         return (author,DOA)
     
-    def calculate_file_DOA(self,authors:Iterable[Author],filepath:Union[Path|str])->dict[Author,float]:
-        path:Path=filepath
+    def calculate_file_DOA(self,input_tuple:tuple[tuple[str, list[Commit]], set[Author]])->tuple[str,dict[Author,float]]:
         author_doa:dict[Author,float]=dict()
-        if isinstance(filepath,str):
-            path=Path(filepath)
-        commit_list=list(git.Repository(path_to_repo=self.repo_path,filepath=path,skip_whitespaces=True).traverse_commits())
-        pool=ThreadPoolExecutor()
-        tasks:list[Future]=[]
-        for author in authors:
-            tasks.append(pool.submit(self._calculate_DOA,author=author,commit_list=commit_list))
-        for task in tasks:
-            author,doa=task.result()
+        file_tuple,authors=input_tuple
+        filepath,commit_list=file_tuple
+        commit_list=list(commit_list)
+        logger.error(f"Checking {filepath} with {len(commit_list)}")
+        tuple_list=map(lambda item:(item,commit_list),authors)
+        
+        with ThreadPoolExecutor() as executor:
+            results=executor.map(self._calculate_DOA,tuple_list)
+        for result in results:
+            author,doa=result
             author_doa[author]=doa
-        return author_doa
+        return (filepath,author_doa)
     
-    #FIXME need to be optimized avaragae of 56s of execution
+    #FIXME need to be optimized avaragae of 18s of execution
     def get_truck_factor(self,doa_threshold:float=0.75)->tuple[int,dict[Author,list[str]]]:
-        git_repo=Repo(self.repo_path)
-        tree=git_repo.tree()
-        files=[file.abspath for file in tree.traverse() if isinstance(file,Blob)]
+        tree=self.repo.tree()
         authors=self.get_all_authors()
         author_files_counter:dict[Author,list[str]]=dict([(author,[]) for author in authors])
-        files_author_count:dict[str,int]=dict([(file,0) for file in files])
+        files_author_count:dict[str,int]=dict()
+        file_relative_commit:dict[str,list[Commit]]=dict()
         orphans=0
         tf=0
-        for file in files:
-            doas=self.calculate_file_DOA(authors=authors,filepath=file)
-            max_doa=sorted(doas.values(),reverse=True)[0]
+        tot_files=0
+        for commit in self.commit_list:
+            m_files=commit.stats.files.keys()
+            for file in m_files:
+                if not file in file_relative_commit:
+                    file_relative_commit[file]=[]
+                file_relative_commit[file].append(commit)
+                files_author_count[file]=0
+        tuple_list=map(lambda item:(item,authors),file_relative_commit.items())
+        logger.error(file_relative_commit.keys())
+        # logger.error(tuple_list)
+        # print(len(tuple_list),tuple_list)
+        with ThreadPoolExecutor() as executor:
+            results=executor.map(self.calculate_file_DOA,tuple_list)
+        for result in results:
+            file,doas=result
             for author,doa in doas.items():
+                max_doa=sorted(doas.values(),reverse=True)[0]
                 if float(doa/max_doa)>= doa_threshold:
                     author_files_counter[author].append(file)
                     files_author_count[file]+=1
         author_sorted_list=sorted(((k,v) for k,v in author_files_counter.items()),key=lambda item:len(item[1]),reverse=True)
         logger.debug("Author sorted DOA list",extra=dict(author_list=author_sorted_list))
-        break_flag=False
-        tot_files=len(files)
         i=int(0)
         while orphans <= int(tot_files/2):
             author,fs=author_sorted_list[i]
@@ -144,29 +162,8 @@ class RepoMiner():
                 files_author_count[f]-=1
                 if files_author_count[f]==0:
                     orphans+=1
+                print(orphans,i)
                 if orphans > int(tot_files/2):
                     tf=i
                     break
         return (tf,author_files_counter)
-        
-        
-        
-        
-        # file_path=file
-        # if isinstance(file,Path):
-        #     file_path=file.as_posix()
-        # repo=git.Repository(self.repo_path,single=commit,order="reverse")
-        # list(repo.traverse_commits())[0]
-        # target_commit.
-# def get_diff(repository:str,filepath:str)->dict[str,dict[str, list[tuple[int, str]]]]:
-#     repo=git.Repository(path_to_repo=repository,filepath=filepath,only_no_merge=True,skip_whitespaces=True,order="reverse")
-#     relative_filepath=filepath.removeprefix(repository)[1:].replace("/","\\")
-#     diffs:dict[str,dict[str, list[tuple[int, str]]]]=dict()
-#     for commit in repo.traverse_commits():
-#         for f in commit.modified_files:
-#             if f.old_path == relative_filepath or f.new_path == relative_filepath:
-#                 relative_filepath=f.new_path
-#                 if f.old_path != None:
-#                     relative_filepath=f.old_path
-#                 diffs[commit.hash]=f.diff_parsed
-#     return diffs

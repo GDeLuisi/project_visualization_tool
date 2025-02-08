@@ -22,6 +22,8 @@ class Author():
         if not isinstance(value,Author):
             raise TypeError(f"Expected value of type <Author>, received {type(value)}")
         return self.name==value.name and self.email==value.email
+    def __str__(self):
+        return f"Name: {self.name} , Email: {self.email}"
     
 @dataclass
 class Commit():
