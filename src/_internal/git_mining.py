@@ -18,7 +18,7 @@ from logging import getLogger
 from functools import cached_property
 import json
 logger=getLogger("Repo Miner")
-#TODO implemente a threaded version for optimization
+#FIXME restructure whole class with recent optimization 
 class RepoMiner():
     def __init__(self,repo_path:Union[Path,str]):
         self.repo_path=repo_path
