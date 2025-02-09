@@ -2,7 +2,8 @@ import pydriller as git
 import pydriller.metrics.process.contributors_count as contr
 import pydriller.metrics.process.history_complexity as history
 import pydriller.metrics.process.commits_count as comcnt
-from .data_typing import Author
+from .data_typing import Author,CommitInfo
+from time import strptime
 from typing import Optional,Generator,Union,Iterable
 from pathlib import Path
 from datetime import datetime
@@ -13,9 +14,9 @@ import os
 from math import log1p
 from threading import Thread,Lock
 from concurrent.futures import ProcessPoolExecutor,ThreadPoolExecutor
-from time import monotonic,sleep
 from logging import getLogger
-
+from functools import cached_property
+import json
 logger=getLogger("Repo Miner")
 #TODO implemente a threaded version for optimization
 class RepoMiner():
@@ -24,9 +25,45 @@ class RepoMiner():
         if isinstance(repo_path,Path):
             self.repo_path=repo_path.as_posix()
         self.repo=Repo(self.repo_path)
-        self.commit_list=list(self.repo.iter_commits())
+        self.git_repo=self.repo.git
+        self.commits_info:dict[str,CommitInfo]=dict()
+        self.authors:set[Author]=set()
+        self.update()
         
-
+    def update(self,fetch_all:bool=False,pull_all:bool=False):
+        if fetch_all:
+            self.git_repo.fetch("--all")
+        if pull_all:
+            self.git_repo.pull("--all")
+        # "--all","--name-only","--pretty=format:|{'commit': '1c85669eb58fc986d43eb7c878e03cb58fb4883d', 'abbreviated_commit': '1c85669', 'tree': 'c6a6edfde2001a68e123c724625faf7599f82371', 'abbreviated_tree': 'c6a6edf', 'parent': 'efe6fba7d02ad06bec603b57f2e5115b7ccd31d8', 'abbreviated_parent': 'efe6fba', 'refs': 'HEAD -> development, origin/development', 'encoding': '', 'subject': 'optimized truck factor function', 'sanitized_subject_line': 'optimized-truck-factor-function', 'body': '', 'commit_notes': '', 'verification_flag': 'N', 'signer': '', 'signer_key': '', 'author': {'name': 'Gerardo De Luisi', 'email': 'deluisigerardo@gmail.com', 'date': 'Sat, 8 Feb 2025 14:21:03 +0100'}, 'commiter': {'name': 'Gerardo De Luisi', 'email': 'deluisigerardo@gmail.com', 'date': 'Sat, 8 Feb 2025 14:21:03 +0100'}}
+        files:list[str]=self.git_repo.log("--all","--name-only","--pretty=format:|").split('|')
+        files=list(reversed([re.split(string=file.strip('\n\r'),pattern=r'\r\n|\n|\r') for file in files][1:]))
+        logs=re.split(string=self.git_repo.log("--all",'--pretty=format:{"commit": "%H","abbreviated_commit": "%h","tree": "%T","abbreviated_tree": "%t","parent": "%P","abbreviated_parent": "%p","refs": "%D","encoding": "%e","subject": "%s","sanitized_subject_line": "%f","body": "%b","commit_notes": "%N","verification_flag": "%G?","signer": "%GS","signer_key": "%GK","author": {"name": "%aN","email": "%aE","date": "%aD"},"commiter": {"name": "%cN","email": "%cE","date": "%cD"}}'),pattern=r'\r\n|\n|\r')
+        logs=reversed([json.loads(log) for log in logs])
+        auth_dict:dict[Author,list[str]]=dict()
+        for i,log in enumerate(logs):
+            auth=Author(log["author"]["email"],log["author"]["name"])
+            if auth not in auth_dict:
+                auth_dict[auth]=[]
+            auth_dict[auth].append(log["commit"])
+            self.commits_info[log["commit"]]=CommitInfo(
+                                                author_email=log["author"]["email"],
+                                                author_name=log["author"]["name"],
+                                                commit_hash=log["commit"],
+                                                abbr_hash=log["abbreviated_commit"],
+                                                tree=log["tree"],
+                                                refs=log["refs"],
+                                                subject=log["subject"],
+                                                date=strptime(log["author"]["date"],"%a, %d %b %Y %H:%M:%S %z"),
+                                                parent=log["parent"],
+                                                files=files[i])
+        for auth,commits in auth_dict.items():
+            auth.commits_authored=commits
+            self.authors.add(auth)
+        # self.commit_list=[self.repo.commit(hash) for hash in self.commit_list_hashes]
+        # [commit.stats for commit in self.commit_list]
+        # self.truck_factor=self.get_truck_factor()[0]
+        
     def get_commits_hash(self,since:Optional[datetime]=None,to:Optional[datetime]=None)->Generator[str,None,None]:
         repo=git.Repository(path_to_repo=self.repo_path,since=since,to=to)
         return (commit.hash for commit in repo.traverse_commits())
@@ -34,10 +71,6 @@ class RepoMiner():
     def get_commits_between(self,from_commit:str,to_commit:str)->Generator[str,None,None]:
         repo=git.Repository(path_to_repo=self.repo_path,from_commit=from_commit,to_commit=to_commit)
         return (commit.hash for commit in repo.traverse_commits())
-    
-    def get_all_authors(self)->set[Author]:
-        authors:set[Author]=set((Author(commit.author.email,commit.author.name) for  commit in self.commit_list))
-        return authors
     
     def get_file_author(self,file:str)->Author:
         repo=git.Repository(path_to_repo=self.repo_path,only_no_merge=True,filepath=file)
@@ -84,75 +117,73 @@ class RepoMiner():
                 text=re.split(string=fl.read().decode(),pattern=r'\r\n|\n|\r')
         return text
     
-    def _calculate_DL(self,input_tuple:tuple[Author,list[Commit]])->int:
+    def _calculate_DL(self,input_tuple:tuple[Author,list[CommitInfo]])->int:
         author,commit_list=input_tuple
         contribution=0
         for commit in commit_list:
-            ath=commit.author
-            if ath.name==author.name and ath.email==author.email:
+            name,email=commit.author_name,commit.author_email
+            if name==author.name and email==author.email:
                 contribution+=1
         return contribution
     
-    def _calculate_DOA(self,input_tuple:tuple[Author,list[Commit]])->tuple[Author,float]:
+    def _calculate_DOA(self,input_tuple:tuple[Author,list[CommitInfo]])->tuple[Author,float]:
         author,commit_list=input_tuple
         creation_commit=commit_list[0] if commit_list else None
         FA=0
         DL=0
-        if creation_commit and Author(creation_commit.author.email,creation_commit.author.name) == author:
+        logger.debug(f"Creation commit {creation_commit}")
+        if creation_commit and Author(creation_commit.author_email,creation_commit.author_name) == author:
             FA=1
         DL=self._calculate_DL((author,commit_list))
-        logger.error(f"Calculating DOA for {str(author)}")
+        logger.debug(f"Calculating DOA for {str(author)}")
         AC:int=abs(len(commit_list)-DL)
         DOA=3.293+1.098*FA+0.164*DL-0.321*log1p(AC)
         return (author,DOA)
     
-    def calculate_file_DOA(self,input_tuple:tuple[tuple[str, list[Commit]], set[Author]])->tuple[str,dict[Author,float]]:
+    def calculate_file_DOA(self,input_tuple:tuple[tuple[str, list[CommitInfo]], set[Author]])->tuple[str,dict[Author,float]]:
         author_doa:dict[Author,float]=dict()
+        # print(author)
         file_tuple,authors=input_tuple
         filepath,commit_list=file_tuple
-        commit_list=list(commit_list)
         logger.debug(f"Checking {filepath} with {len(commit_list)}")
+        # print(f"Checking {filepath} with {len(commit_list)}")
         tuple_list=map(lambda item:(item,commit_list),authors)
         with ThreadPoolExecutor() as executor:
             results=executor.map(self._calculate_DOA,tuple_list)
         for result in results:
+            # print(result)
             author,doa=result
             author_doa[author]=doa
         return (filepath,author_doa)
-    def get_file_commits(self,commit_list:Optional[list[Commit]]=None)->dict[str,list[Commit]]:
-        c_list=commit_list if commit_list else self.commit_list
+    
+    def get_file_commits(self,commit_list:Optional[list[CommitInfo]]=None)->dict[str,list[Commit]]:
+        c_list=commit_list if commit_list else self.commits_info
         file_relative_commit:dict[str,list[Commit]]=dict()
         for commit in c_list:
-            m_files=commit.stats.files.keys()
-            for file in m_files:
-                if not file in file_relative_commit:
-                    file_relative_commit[file]=[]
+            for file in commit.files:
                 file_relative_commit[file].append(commit)
         return file_relative_commit
 
     def get_truck_factor(self,doa_threshold:float=0.75)->tuple[int,dict[Author,list[str]]]:
-        authors=self.get_all_authors()
+        authors=self.authors
         author_files_counter:dict[Author,list[str]]=dict([(author,[]) for author in authors])
         files_author_count:dict[str,int]=dict()
         file_relative_commit:dict[str,list[Commit]]=dict()
         orphans=0
         tf=0
         tot_files=0
-        max_workers=os.cpu_count()-1
-        chunk_len=int(len(self.commit_list)/max_workers)
-        commit_chunked_list=[self.commit_list[i:i+chunk_len] for i in range(0,len(self.commit_list),chunk_len)]
-        with ThreadPoolExecutor() as executor:
-            results=executor.map(self.get_file_commits,commit_chunked_list)
-        for result in results:
-            for k,v in result.items():
-                if k not in file_relative_commit:
-                    file_relative_commit[k]=[]
-                file_relative_commit[k].extend(v)
-                files_author_count[k]=0
+        for commit in self.commits_info.values():
+            for file in commit.files:
+                if file not in file_relative_commit:
+                    file_relative_commit[file]=[]
+                file_relative_commit[file].append(commit)
+                files_author_count[file]=0
+        # print(file_relative_commit)
         tuple_list=map(lambda item:(item,authors),file_relative_commit.items())
         with ThreadPoolExecutor() as executor:
             results=executor.map(self.calculate_file_DOA,tuple_list)
         for result in results:
+            # print(result)
             file,doas=result
             for author,doa in doas.items():
                 max_doa=sorted(doas.values(),reverse=True)[0]
@@ -169,8 +200,9 @@ class RepoMiner():
                 files_author_count[f]-=1
                 if files_author_count[f]==0:
                     orphans+=1
-                print(orphans,i)
+                # print(orphans,i)
                 if orphans > int(tot_files/2):
                     tf=i
                     break
         return (tf,author_files_counter)
+    
