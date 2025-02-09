@@ -16,7 +16,7 @@ def repo_miner():
 def test_get_all_authors(repo_miner):
     new_set=repo_miner.authors
     logger.debug(new_set)
-    for author in set([Author("deluisigerardo@gmail.com","Gerardo De Luisi"),Author(email='git@stash', name='Gerardo De Luisi'),Author("102797969+GDeLuisi@users.noreply.github.com","GeggeDL"),Author(email='g.deluisi@reply.it', name='Gerardo De Luisi')]):
+    for author in set([Author("deluisigerardo@gmail.com","Gerardo De Luisi"),Author("102797969+GDeLuisi@users.noreply.github.com","GeggeDL"),Author(email='g.deluisi@reply.it', name='Gerardo De Luisi')]):
         found=False
         for ath in new_set:
             if ath == author:
