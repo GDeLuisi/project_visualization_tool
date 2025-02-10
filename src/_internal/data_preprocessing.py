@@ -6,7 +6,7 @@ from time import strftime,gmtime
 from datetime import date
 from functools import cache
 
-@cache
+
 def make_commit_dataframe(commit_list:Iterable[CommitInfo])->pd.DataFrame:
     commit_dict=dict(hash=[],message=[],author=[],date=[],author_email=[],author_name=[],abbr_hash=[],files_modified=[],parent=[],refs=[])
     for commit in commit_list:
@@ -20,7 +20,7 @@ def make_commit_dataframe(commit_list:Iterable[CommitInfo])->pd.DataFrame:
         commit_dict['parent'].append(commit.parent),
         commit_dict['refs'].append(commit.refs)
     return pd.DataFrame(commit_dict)
-@cache
+
 def make_author_dataframe(author_list:Iterable[Author])->pd.DataFrame:
     auth_dict=dict(name=[],email=[],commits_authored=[],files_modified=[])
     for author in author_list:
