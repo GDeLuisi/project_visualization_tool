@@ -57,14 +57,18 @@ jobs:
       shell: bash
       run: |
         array=($(jq -r '.files | keys | .[]' coverage.json))
+        uncovered_files=()
         for key in ${array[@]};do 
           key="$(echo $key |sed 's/\\/\\\\/g')"
           percentage="$(jq -r ".files.\"$key\" | .summary.percent_covered_display" coverage.json)"
           if [[ $percentage -lt "75" ]];then
             >&2 echo "File $key tests have not covered the minimum of policy percentage coverage. Please adjust your files accordingly"
-            exit 1
+            uncovered_files+=($key)
           fi
         done
+        if [ ${#uncovered_files[@]} -gt 0 ];then
+          exit 1
+        fi
     - if: failure()
       name: Read reports
       shell: bash
