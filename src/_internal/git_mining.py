@@ -38,14 +38,16 @@ class RepoMiner():
         # "--all","--name-only","--pretty=format:|{'commit': '1c85669eb58fc986d43eb7c878e03cb58fb4883d', 'abbreviated_commit': '1c85669', 'tree': 'c6a6edfde2001a68e123c724625faf7599f82371', 'abbreviated_tree': 'c6a6edf', 'parent': 'efe6fba7d02ad06bec603b57f2e5115b7ccd31d8', 'abbreviated_parent': 'efe6fba', 'refs': 'HEAD -> development, origin/development', 'encoding': '', 'subject': 'optimized truck factor function', 'sanitized_subject_line': 'optimized-truck-factor-function', 'body': '', 'commit_notes': '', 'verification_flag': 'N', 'signer': '', 'signer_key': '', 'author': {'name': 'Gerardo De Luisi', 'email': 'deluisigerardo@gmail.com', 'date': 'Sat, 8 Feb 2025 14:21:03 +0100'}, 'commiter': {'name': 'Gerardo De Luisi', 'email': 'deluisigerardo@gmail.com', 'date': 'Sat, 8 Feb 2025 14:21:03 +0100'}}
         files:list[str]=self.git_repo.log("--all","--name-only","--pretty=format:|").split('|')
         files=list(reversed([re.split(string=file.strip('\n\r'),pattern=r'\r\n|\n|\r') for file in files][1:]))
-        logs=re.split(string=self.git_repo.log("--all",'--pretty=format:{"commit": "%H","abbreviated_commit": "%h","tree": "%T","abbreviated_tree": "%t","parent": "%P","abbreviated_parent": "%p","refs": "%D","encoding": "%e","subject": "%s","sanitized_subject_line": "%f","body": "%b","commit_notes": "%N","verification_flag": "%G?","signer": "%GS","signer_key": "%GK","author": {"name": "%aN","email": "%aE","date": "%aD"},"commiter": {"name": "%cN","email": "%cE","date": "%cD"}}'),pattern=r'\r\n|\n|\r')
+        logs=re.split(string=self.git_repo.log("--all","--no-merges",'--pretty=format:{"commit": "%H","abbreviated_commit": "%h","tree": "%T","abbreviated_tree": "%t","parent": "%P","abbreviated_parent": "%p","refs": "%D","encoding": "%e","subject": "%s","sanitized_subject_line": "%f","body": "%b","commit_notes": "%N","verification_flag": "%G?","signer": "%GS","signer_key": "%GK","author": {"name": "%aN","email": "%aE","date": "%aD"},"commiter": {"name": "%cN","email": "%cE","date": "%cD"}}'),pattern=r'\r\n|\n|\r')
         logs=reversed([json.loads(log) for log in logs])
-        auth_dict:dict[Author,list[str]]=dict()
+        author_dict:dict[Author,dict[str,list]]=dict()
         for i,log in enumerate(logs):
             auth=Author(log["author"]["email"],log["author"]["name"])
-            if auth not in auth_dict:
-                auth_dict[auth]=[]
-            auth_dict[auth].append(log["commit"])
+            if not auth in author_dict:
+                author_dict[auth]=dict(files=set(),commits=list())
+            author_dict[auth]["files"].update(files[i])
+            author_dict[auth]["commits"].append(log["commit"])
+            
             self.commits_info[log["commit"]]=CommitInfo(
                                                 author_email=log["author"]["email"],
                                                 author_name=log["author"]["name"],
@@ -57,43 +59,37 @@ class RepoMiner():
                                                 date=strptime(log["author"]["date"],"%a, %d %b %Y %H:%M:%S %z"),
                                                 parent=log["parent"],
                                                 files=files[i])
-        for auth,commits in auth_dict.items():
-            auth.commits_authored=commits
-            self.authors.add(auth)
+        for author,v in author_dict.items():
+            author.files_modifed=v["files"]
+            author.commits_authored=v["commits"]
+            self.authors.add(author)
         # self.commit_list=[self.repo.commit(hash) for hash in self.commit_list_hashes]
         # [commit.stats for commit in self.commit_list]
         # self.truck_factor=self.get_truck_factor()[0]
-        
-    def get_commits_hash(self,since:Optional[datetime]=None,to:Optional[datetime]=None)->Generator[str,None,None]:
-        repo=git.Repository(path_to_repo=self.repo_path,since=since,to=to)
-        return (commit.hash for commit in repo.traverse_commits())
     
-    def get_commits_between(self,from_commit:str,to_commit:str)->Generator[str,None,None]:
-        repo=git.Repository(path_to_repo=self.repo_path,from_commit=from_commit,to_commit=to_commit)
-        return (commit.hash for commit in repo.traverse_commits())
+    def get_file_authors(self,fileapath:Union[str,Path])->Generator[Author,None,None]:
+        path=fileapath
+        if isinstance(fileapath,str):
+            path=Path(fileapath)
+        path=path.relative_to(self.repo_path)
+        logger.debug(f"Relative Path {path.as_posix()}")
+        for author in self.authors:
+            if path.as_posix() in author.files_modifed:
+                logger.debug(f"Found {path.as_posix()} in {str(author)}")
+                yield author
     
-    def get_file_author(self,file:str)->Author:
-        repo=git.Repository(path_to_repo=self.repo_path,only_no_merge=True,filepath=file)
-        cm_list=list(repo.traverse_commits())
-        author=Author(cm_list[0].author.email,cm_list[0].author.name)
-        return author
+    def get_commit(self,commit_hash:str)->CommitInfo:
+        return self.commits_info[commit_hash]
 
-    def get_author_commits(self,author_name:str)->Generator[str,None,None]:
-        repo=git.Repository(path_to_repo=self.repo_path,only_authors=[author_name])
-        return (commit.hash for commit in repo.traverse_commits())
-
-    def get_file_authors(self,file:str)->set[Author]:
-        repo=git.Repository(path_to_repo=self.repo_path,only_no_merge=True,filepath=file)
-        authors:set[Author]=set((Author(commit.author.email,commit.author.name) for  commit in repo.traverse_commits()))
-        return authors
-    
-    def get_commit(self,commit_hash:str)->git.Commit:
-        repo=git.Repository(path_to_repo=self.repo_path,single=commit_hash)
-        return list(repo.traverse_commits())[0]
-
-    def get_last_modified(self,commit:str):
+    def get_last_modified(self,commit:str)->Generator[CommitInfo,None,None]:
         git_repo=git.Git(self.repo_path)
-        return git_repo.get_commits_last_modified_lines(git_repo.get_commit(commit))
+        for k in git_repo.get_commits_last_modified_lines(git_repo.get_commit(commit)).keys():
+            yield self.commits_info[k]
+    def get_author_commits(self,name:str,email:str)->list[CommitInfo]:
+        for author in self.authors:
+            if name and email and author.name == name and author.email ==email:
+                return author.commits_authored
+        return []
     #TODO include option to use multiple filenames
     def get_source_code(self,file:Union[str,Path],commit:Optional[str]=None)->list[str]:
         text=[]
@@ -178,6 +174,7 @@ class RepoMiner():
                     file_relative_commit[file]=[]
                 file_relative_commit[file].append(commit)
                 files_author_count[file]=0
+        tot_files=len(files_author_count.keys())
         # print(file_relative_commit)
         tuple_list=map(lambda item:(item,authors),file_relative_commit.items())
         with ThreadPoolExecutor() as executor:

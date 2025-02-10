@@ -18,8 +18,9 @@ class Author():
     email:str
     name:str
     commits_authored:list[str]=field(default_factory=lambda: [])
+    files_modifed:set[str]=field(default_factory=lambda: set())
     def __hash__(self):
-        return hash(repr(self))
+        return hash(repr(self.name)+repr(self.email))
     def __eq__(self, value):
         if not isinstance(value,Author):
             raise TypeError(f"Expected value of type <Author>, received {type(value)}")

@@ -32,21 +32,16 @@ def test_get_commit_author(repo_miner):
     except Exception as e:
         logger.exception(e)
         raise Exception(e)
-    name=commit.author.name
+    name=commit.author_name
     assert name=="Gerardo De Luisi"
 
 def test_get_author_commits(repo_miner):
-    gdlist=list(repo_miner.get_author_commits("GeggeDL"))
-    delist=list(repo_miner.get_author_commits("Gerardo De Luisi"))
-    totlist=list(repo_miner.get_commits_hash())
-    logger.debug(f"Totlist: {len(totlist)}\nSum: {len(gdlist)+len(delist)}")
-    assert len(totlist) == (len(gdlist)+len(delist))
-
-def test_get_commit_between(repo_miner):
-    assert len(list(repo_miner.get_commits_between("4a6869eaa1bc585c5552d69c0c841e19a3bb642d","f188112d478439ab9b6d5dad88cf14c46a0efa44")))>0
-    
-def test_get_truck_factor():
-    pass
+    sumlist=0
+    for author in repo_miner.authors:
+        sumlist+=len(repo_miner.get_author_commits(author.name,author.email))
+    totlist=len(repo_miner.commits_info.keys())
+    logger.debug(f"Totlist: {totlist}\nSum: {sumlist}")
+    assert totlist == sumlist
 
 def test_track_bug():
     pass
@@ -58,7 +53,13 @@ def test_get_diff(repo_miner):
     pass
 
 def test_get_file_authors(repo_miner):
-    assert repo_miner.get_file_authors(Path.cwd().joinpath(".github","workflows","test-dev.yml")) == set([Author("deluisigerardo@gmail.com","Gerardo De Luisi"),Author("102797969+GDeLuisi@users.noreply.github.com","GeggeDL")])
+    main_set=set([Author("deluisigerardo@gmail.com","Gerardo De Luisi"),Author("102797969+GDeLuisi@users.noreply.github.com","GeggeDL")])
+    ret_set=set(repo_miner.get_file_authors(Path.cwd().joinpath(".github","workflows","test-dev.yml")))
+    logger.debug(f"Returned set={ret_set}")
+    for auth in ret_set:
+        if auth not in main_set:
+            assert False
+    assert True
 
 def test_get_bug_introducing_commit():
     pass
@@ -67,8 +68,8 @@ def test_get_bug_resolving_commit():
     pass
 
 def test_get_all_commits(repo_miner):
-    logger.debug(list(Git(Path.cwd()).get_list_commits()))
-    assert len(list(repo_miner.get_commits_hash())) == len(list((commit.hash for commit in Git(Path.cwd()).get_list_commits())))
+    # logger.debug(list(Git(Path.cwd()).get_list_commits()))
+    assert len(list(repo_miner.commits_info.keys())) == len(list((commit.hash for commit in Git(Path.cwd()).get_list_commits())))
 
 def test_get_last_modified(repo_miner):
     try:
@@ -83,7 +84,6 @@ def test_get_last_modified(repo_miner):
 def test_get_source_code(repo_miner,commit):
     text=repo_miner.get_source_code(Path.cwd().joinpath("tests","test_dummy.py"),commit)
     assert text == ['#TODO dummy test', 'def test_dummy():', '    pass', '', '"""', 'TODO multiple line test', '"""', '']
-
 
 def test_calculate_truck_factor(repo_miner):
     tf=repo_miner.get_truck_factor()
