@@ -11,38 +11,39 @@ import numpy as np
 import plotly.express as px
 from src._internal import make_commit_dataframe
 
-df=None
+# df=None
 # from gui import create_datepicker
 def start_app(repo_path:Union[str|Path]):
-    global df
-    repo=RepoMiner(repo_path=repo_path)
-    df=make_commit_dataframe(reversed(repo.commit_list))
-    # print(df.head())
-    dff=df.copy()
-    dff["date_show"]=df["date"].map(lambda date_in:date_in.isoformat())
-    start=dff["date_show"].head(1).iloc[0]
-    end=dff["date_show"].tail(1).iloc[0]
-    print(start,end)
+    # global df
+    # repo=RepoMiner(repo_path=repo_path)
+    # df=make_commit_dataframe(reversed(repo.commit_list))
+    # # print(df.head())
     # dff=df.copy()
-    # counts, bins = np.histogram(df.date)
-    # fig = px.bar(x=bins, y=counts, labels={'x':'total_bill', 'y':'count'})
-    fig=px.density_heatmap(dff,"date_show","author_name","hash",histfunc="count")
+    # dff["date_show"]=df["date"].map(lambda date_in:date_in.isoformat())
+    # start=dff["date_show"].head(1).iloc[0]
+    # end=dff["date_show"].tail(1).iloc[0]
+    # print(start,end)
+    # # dff=df.copy()
+    # # counts, bins = np.histogram(df.date)
+    # # fig = px.bar(x=bins, y=counts, labels={'x':'total_bill', 'y':'count'})
+    # fig=px.density_heatmap(dff,"date_show","author_name","hash",histfunc="count")
     # fig.update_layout(bargap=0.4,yaxis_title="commits per day",xaxis_title="date")
     # fig.update_xaxes(range=[start, end])
-    app=Dash(name="Project Visualization Tool",title="PVT",use_pages=True,pages_folder=Path(__file__).parent.parent.joinpath("gui","pages").as_posix(),assets_folder=Path(__file__).parent.parent.joinpath("gui","assets").as_posix())
-    app.layout = html.Div([
-        dcc.DatePickerRange(
-            id='my-date-picker-range',
-            min_date_allowed=date.fromisoformat(start),
-            max_date_allowed=date.fromisoformat(end),
-            initial_visible_month=date.fromisoformat(start)
-    ),
-    dcc.Graph(id="graph",figure=fig),
-    html.Div(id='output-container-date-picker-range'),
-    page_container
-    ])
-    open("http://localhost:8050/")
-    serve(app.server,host="localhost",port=8050)
+    # app=Dash(name="Project Visualization Tool",title="PVT",use_pages=True,pages_folder=Path(__file__).parent.parent.joinpath("gui","pages").as_posix(),assets_folder=Path(__file__).parent.parent.joinpath("gui","assets").as_posix())
+    # app.layout = html.Div([
+    #     dcc.DatePickerRange(
+    #         id='my-date-picker-range',
+    #         min_date_allowed=date.fromisoformat(start),
+    #         max_date_allowed=date.fromisoformat(end),
+    #         initial_visible_month=date.fromisoformat(start)
+    # ),
+    # dcc.Graph(id="graph",figure=fig),
+    # html.Div(id='output-container-date-picker-range'),
+    # page_container
+    # ])
+    # open("http://localhost:8050/")
+    # serve(app.server,host="localhost",port=8050)
+    pass
     
 # @callback(
 #     Output('output-container-date-picker-range', 'children'),
