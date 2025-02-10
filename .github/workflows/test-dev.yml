@@ -59,7 +59,7 @@ jobs:
         array=($(jq -r '.files | keys | .[]' coverage.json))
         for key in ${array[@]};do 
           key="$(echo $key |sed 's/\\/\\\\/g')"
-          percentage="$(jq -r ".files.\"$key\" | .summary.percent_covered" coverage.json)"
+          percentage="$(jq -r ".files.\"$key\" | .summary.percent_covered_display" coverage.json)"
           if [[ $percentage -lt "75" ]];then
             >&2 echo "File $key tests have not covered the minimum of policy percentage coverage. Please adjust your files accordingly"
             exit 1
