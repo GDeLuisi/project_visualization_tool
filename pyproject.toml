@@ -31,6 +31,12 @@ pythonpath = [
 testpaths = [
   "tests"
 ]
+[tool.coverage.run]
+omit = [
+  "src/utility/logs.py",
+  "main.py",
+  "tests.py"
+]
 [project.scripts]
 project-viewer = "src.app.cli:main"
 [project.urls]
