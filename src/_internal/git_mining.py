@@ -3,10 +3,10 @@ import pydriller.metrics.process.contributors_count as contr
 import pydriller.metrics.process.history_complexity as history
 import pydriller.metrics.process.commits_count as comcnt
 from .data_typing import Author,CommitInfo
-from time import strptime
+from time import strptime,mktime
 from typing import Optional,Generator,Union,Iterable
 from pathlib import Path
-from datetime import datetime
+from datetime import date
 from git import Git,Repo,Blob,Commit
 from io import BytesIO
 import re
@@ -56,7 +56,7 @@ class RepoMiner():
                                                 tree=log["tree"],
                                                 refs=log["refs"],
                                                 subject=log["subject"],
-                                                date=strptime(log["author"]["date"],"%a, %d %b %Y %H:%M:%S %z"),
+                                                date=date.fromtimestamp(mktime(strptime(log["author"]["date"],"%a, %d %b %Y %H:%M:%S %z"))),
                                                 parent=log["parent"],
                                                 files=files[i])
         for author,v in author_dict.items():
