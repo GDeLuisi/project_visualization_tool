@@ -13,7 +13,7 @@ testdata_fetchsource_correct=[
     (workingpath.as_posix(),[".py",".toml"],10),
 ]
 # "Path does not exist"
-# "Path is not a directory"
+# "Path is not a directory" .....................
 testdata_fetchsource_wrong=[
     (workingpath.joinpath("main.py"),[".py"],"Path is not a directory"),
     (workingpath.joinpath("dont_exist"),[".py"],"Path does not exist"),

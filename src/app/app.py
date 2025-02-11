@@ -24,5 +24,5 @@ def start_app(repo_path:Union[str|Path]):
         dcc.Store("repo_path",data=path),
         page_container
     ])
-    open("http://localhost:8050/")
-    serve(app.server,host="localhost",port=8050)
+    # open("http://localhost:8050/")
+    # serve(app.server,host="localhost",port=8050)
