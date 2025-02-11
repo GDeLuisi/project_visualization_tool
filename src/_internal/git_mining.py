@@ -2,9 +2,9 @@ import pydriller as git
 import pydriller.metrics.process.contributors_count as contr
 import pydriller.metrics.process.history_complexity as history
 import pydriller.metrics.process.commits_count as comcnt
-from .data_typing import Author,CommitInfo
+from .data_typing import Author,CommitInfo,check_extension
 from time import strptime,mktime
-from typing import Optional,Generator,Union,Iterable
+from typing import Optional,Generator,Union,Iterable,get_args
 from pathlib import Path
 from datetime import date
 from git import Git,Repo,Blob,Commit
@@ -20,84 +20,138 @@ import json
 logger=getLogger("Repo Miner")
 #FIXME restructure whole class with recent optimization 
 class RepoMiner():
+    COMMIT_PRETTY_FORMAT='--pretty=format:{"commit": "%H","abbreviated_commit": "%h","tree": "%T","abbreviated_tree": "%t","parent": "%P","abbreviated_parent": "%p","refs": "%D","encoding": "%e","subject": "%s","sanitized_subject_line": "%f","body": "%b","commit_notes": "%N","verification_flag": "%G?","signer": "%GS","signer_key": "%GK","author": {"name": "%aN","email": "%aE","date": "%aD"},"commiter": {"name": "%cN","email": "%cE","date": "%cD"}}'
     def __init__(self,repo_path:Union[Path,str]):
         self.repo_path=repo_path
         if isinstance(repo_path,Path):
             self.repo_path=repo_path.as_posix()
         self.repo=Repo(self.repo_path)
         self.git_repo=self.repo.git
-        self.commits_info:dict[str,CommitInfo]=dict()
-        self.authors:set[Author]=set()
-        self.update()
+        # self.update()
+        #"--no-merges","--no-commit-header",f"--max-count={max_count}",'--pretty=format:{"commit": "%H","abbreviated_commit": "%h","tree": "%T","abbreviated_tree": "%t","parent": "%P","abbreviated_parent": "%p","refs": "%D","encoding": "%e","subject": "%s","sanitized_subject_line": "%f","body": "%b","commit_notes": "%N","verification_flag": "%G?","signer": "%GS","signer_key": "%GK","author": {"name": "%aN","email": "%aE","date": "%aD"},"commiter": {"name": "%cN","email": "%cE","date": "%cD"}}',last_revision),pattern=r'\r\n|\n|\r'
+    def _load_commits_date_range(self,start_date:Optional[date]=None,end_date:Optional[date]=None)->list[str]:
+        # start,end = start_date,end_date if start_date>end_date else end_date,start_date
+        arglist=[]
+        try:
+            if start_date < end_date:
+                raise ValueError("Start date cannot come after end date")
+        except TypeError:
+            start_string=f"--since={start_date.isoformat()}" if start_date else None
+            end_string=f"--before={end_date.isoformat()}" if end_date else None
+            if start_string:
+                arglist.append(start_string)
+            if end_string:
+                arglist.append(end_string)
+        finally:
+            return arglist
+                
+    def _load_commits_commit_range(self,start_commit:Optional[str]=None,end_commit:Optional[str]=None)->str:
+        # start,end = start_date,end_date if start_date>end_date else end_date,start_date
+        commit_range=""
+        commit_range=commit_range+start_commit if start_commit else ""
+        if end_commit:
+            commit_range=commit_range+"..."+end_commit 
+        elif not start_commit:
+            commit_range="HEAD"
+        else:
+            commit_range=commit_range+"...HEAD"
+        return commit_range
+                
+    def lazy_load_commits(self,no_merges:bool=True, max_count:int=50,filepath:Optional[Union[str,Path]]=None,relative_path:Optional[Union[str,Path]]=None,start_date:Optional[date]=None,end_date:Optional[date]=None,start_commit:Optional[str]=None,end_commit:Optional[str]=None,author:Optional[str]=None)->Generator[list[CommitInfo],None,None]:
+        arglist=["--no-commit-header",f"--max-count={max_count}",self.COMMIT_PRETTY_FORMAT]
+        if not no_merges:
+            arglist.insert(0,"--no-merges")
+        if author:
+            arglist.insert(0,f"--author={author}")
+        arglist.extend(self._load_commits_date_range(start_date,end_date))
+        if not filepath or relative_path:
+            arglist.append(self._load_commits_commit_range(start_commit,end_commit))
+        elif relative_path:
+            p=Path(relative_path).as_posix() if isinstance(relative_path,str) else relative_path.as_posix()
+            arglist.extend(["--follow",p])
+        else:
+            p=Path(filepath).relative_to(self.repo_path).as_posix() if isinstance(filepath,str) else filepath.relative_to(self.repo_path).as_posix()
+            arglist.extend(["--follow",p])
+        finished=False
+        logger.debug("Loading logs with args",extra={"git_args":arglist})
+        while not finished:
+            logs=re.split(string=self.git_repo.rev_list(arglist),pattern=r'\r\n|\n|\r')
+            logs=[json.loads(log) for log in logs]
+            commit_list:list[CommitInfo]=[]
+            for log in logs:
+                commit_info=CommitInfo(
+                                                    author_email=log["author"]["email"],
+                                                    author_name=log["author"]["name"],
+                                                    commit_hash=log["commit"],
+                                                    abbr_hash=log["abbreviated_commit"],
+                                                    tree=log["tree"],
+                                                    refs=log["refs"],
+                                                    subject=log["subject"],
+                                                    date=date.fromtimestamp(mktime(strptime(log["author"]["date"],"%a, %d %b %Y %H:%M:%S %z"))),
+                                                    parent=log["parent"],
+                                                    files=[])
+                commit_list.append(commit_info)
+            last_revision=commit_info.parent
+            yield commit_list
+            finished = not last_revision.strip()
+    
+    def get_branches(self)->Generator[str,None,None]:
+        for head in self.repo.branches:
+            yield head.name
+    def checkout_branch(self,branch:str):
+        self.git_repo.switch(branch)
+    
+    def get_authors(self,commit_list:Optional[Iterable[CommitInfo]]=None)->set[Author]:
+        cl=commit_list
+        authors:dict[str,Author]=dict()
+        ret_authors=set()
+        if not commit_list:
+            cl=self.lazy_load_commits()
+        for commit in cl:
+            if isinstance(commit,list):
+                for c in commit:
+                    author=Author(c.author_email,c.author_name)
+                    if c.author_email not in authors:
+                        authors[c.author_email]=author
+                    authors[c.author_email].commits_authored.append(c.commit_hash)
         
-    def update(self,fetch_all:bool=False,pull_all:bool=False):
-        if fetch_all:
-            self.git_repo.fetch("--all")
-        if pull_all:
-            self.git_repo.pull("--all")
-        # "--all","--name-only","--pretty=format:|{'commit': '1c85669eb58fc986d43eb7c878e03cb58fb4883d', 'abbreviated_commit': '1c85669', 'tree': 'c6a6edfde2001a68e123c724625faf7599f82371', 'abbreviated_tree': 'c6a6edf', 'parent': 'efe6fba7d02ad06bec603b57f2e5115b7ccd31d8', 'abbreviated_parent': 'efe6fba', 'refs': 'HEAD -> development, origin/development', 'encoding': '', 'subject': 'optimized truck factor function', 'sanitized_subject_line': 'optimized-truck-factor-function', 'body': '', 'commit_notes': '', 'verification_flag': 'N', 'signer': '', 'signer_key': '', 'author': {'name': 'Gerardo De Luisi', 'email': 'deluisigerardo@gmail.com', 'date': 'Sat, 8 Feb 2025 14:21:03 +0100'}, 'commiter': {'name': 'Gerardo De Luisi', 'email': 'deluisigerardo@gmail.com', 'date': 'Sat, 8 Feb 2025 14:21:03 +0100'}}
-        files:list[str]=self.git_repo.log("--all","--name-only","--pretty=format:|").split('|')
-        files=list(reversed([re.split(string=file.strip('\n\r'),pattern=r'\r\n|\n|\r') for file in files][1:]))
-        logs=re.split(string=self.git_repo.log("--all","--no-merges",'--pretty=format:{"commit": "%H","abbreviated_commit": "%h","tree": "%T","abbreviated_tree": "%t","parent": "%P","abbreviated_parent": "%p","refs": "%D","encoding": "%e","subject": "%s","sanitized_subject_line": "%f","body": "%b","commit_notes": "%N","verification_flag": "%G?","signer": "%GS","signer_key": "%GK","author": {"name": "%aN","email": "%aE","date": "%aD"},"commiter": {"name": "%cN","email": "%cE","date": "%cD"}}'),pattern=r'\r\n|\n|\r')
-        logs=reversed([json.loads(log) for log in logs])
-        author_dict:dict[Author,dict[str,list]]=dict()
-        for i,log in enumerate(logs):
-            auth=Author(log["author"]["email"],log["author"]["name"])
-            if not auth in author_dict:
-                author_dict[auth]=dict(files=set(),commits=list())
-            author_dict[auth]["files"].update(files[i])
-            author_dict[auth]["commits"].append(log["commit"])
-            
-            self.commits_info[log["commit"]]=CommitInfo(
-                                                author_email=log["author"]["email"],
-                                                author_name=log["author"]["name"],
-                                                commit_hash=log["commit"],
-                                                abbr_hash=log["abbreviated_commit"],
-                                                tree=log["tree"],
-                                                refs=log["refs"],
-                                                subject=log["subject"],
-                                                date=date.fromtimestamp(mktime(strptime(log["author"]["date"],"%a, %d %b %Y %H:%M:%S %z"))),
-                                                parent=log["parent"],
-                                                files=files[i])
-        for author,v in author_dict.items():
-            author.files_modifed=v["files"]
-            author.commits_authored=v["commits"]
-            self.authors.add(author)
-        # self.commit_list=[self.repo.commit(hash) for hash in self.commit_list_hashes]
-        # [commit.stats for commit in self.commit_list]
-        # self.truck_factor=self.get_truck_factor()[0]
+        ret_authors=set(authors.values())
+        return ret_authors
     
-    def get_file_authors(self,fileapath:Union[str,Path])->Generator[Author,None,None]:
-        path=fileapath
-        if isinstance(fileapath,str):
-            path=Path(fileapath)
-        path=path.relative_to(self.repo_path)
-        logger.debug(f"Relative Path {path.as_posix()}")
-        for author in self.authors:
-            if path.as_posix() in author.files_modifed:
-                logger.debug(f"Found {path.as_posix()} in {str(author)}")
-                yield author
+    def get_authors_in_range(self,start_date:Optional[date]=None,end_date:Optional[date]=None)->set[Author]:
+        authors:dict[str,Author]=dict()
+        for commit in self.lazy_load_commits(start_date=start_date,end_date=end_date,max_count=999):
+            for c in commit:
+                author=Author(c.author_email,c.author_name)
+                if c.author_email not in authors:
+                    authors[c.author_email]=author
+                authors[c.author_email].commits_authored.append(c.commit_hash)
+        return set(authors.values())
     
-    def get_commit(self,commit_hash:str)->CommitInfo:
-        return self.commits_info[commit_hash]
+    def get_commit(self,commit_hash:Optional[str]=None,end_date:Optional[date]=None)->CommitInfo:
+        gen=self.lazy_load_commits(max_count=1,end_commit=commit_hash,end_date=end_date)
+        commit=next(gen)[0]
+        gen=None
+        return commit
 
     def get_last_modified(self,commit:str)->Generator[CommitInfo,None,None]:
         git_repo=git.Git(self.repo_path)
         for k in git_repo.get_commits_last_modified_lines(git_repo.get_commit(commit)).keys():
             yield self.commits_info[k]
-    def get_author_commits(self,name:str,email:str)->list[CommitInfo]:
-        for author in self.authors:
-            if name and email and author.name == name and author.email ==email:
-                return author.commits_authored
-        return []
+            
+    def get_author_commits(self,name:Optional[str]=None,email:Optional[str]=None)->Generator[CommitInfo,None,None]:
+        if not name and not email or name and email:
+            raise ValueError("Only one between name and email are required")
+        val=name if name else email
+        return self.lazy_load_commits(author=val)
+    
     #TODO include option to use multiple filenames
     def get_source_code(self,file:Union[str,Path],commit:Optional[str]=None)->list[str]:
         text=[]
         file_path=file
         if isinstance(file,str):
             file_path=Path(file)
-        git_repo=Repo(self.repo_path)
-        target_commit=git_repo.commit(commit)
+        target_commit=self.git_repo.commit(commit)
         tree=target_commit.tree
         try:
             relative_path=file_path.relative_to(self.repo_path)
@@ -112,6 +166,10 @@ class RepoMiner():
             with BytesIO(f.data_stream.read()) as fl:
                 text=re.split(string=fl.read().decode(),pattern=r'\r\n|\n|\r')
         return text
+    
+    def get_commit_files(self,commit:Optional[str]=None)->list[str]:
+        cm=commit if commit else "HEAD"
+        return self.git_repo.ls_tree("-r","--name-only",cm).split("\n")
     
     def _calculate_DL(self,input_tuple:tuple[Author,list[CommitInfo]])->int:
         author,commit_list=input_tuple
@@ -142,55 +200,76 @@ class RepoMiner():
         file_tuple,authors=input_tuple
         filepath,commit_list=file_tuple
         logger.debug(f"Checking {filepath} with {len(commit_list)}")
-        # print(f"Checking {filepath} with {len(commit_list)}")
-        tuple_list=map(lambda item:(item,commit_list),authors)
-        with ThreadPoolExecutor() as executor:
-            results=executor.map(self._calculate_DOA,tuple_list)
-        for result in results:
-            # print(result)
-            author,doa=result
+        for result in map(lambda item:(item,commit_list),authors):
+            author,doa=self._calculate_DOA(result)
             author_doa[author]=doa
         return (filepath,author_doa)
     
-    def get_file_commits(self,commit_list:Optional[list[CommitInfo]]=None)->dict[str,list[Commit]]:
-        c_list=commit_list if commit_list else self.commits_info
-        file_relative_commit:dict[str,list[Commit]]=dict()
-        for commit in c_list:
-            for file in commit.files:
-                file_relative_commit[file].append(commit)
-        return file_relative_commit
-
-    def get_truck_factor(self,doa_threshold:float=0.75)->tuple[int,dict[Author,list[str]]]:
-        authors=self.authors
-        author_files_counter:dict[Author,list[str]]=dict([(author,[]) for author in authors])
+    def infer_programming_language(self,files:Iterable[str],threshold:float=0.75)->list[str]:
+        suffix_count:dict[str,int]=dict()
+        tot_files=len(files)
+        ret_suffixes=list()
+        for file in files:
+            try:
+                suffix=file.rsplit(".")[1]
+                if suffix not in suffix_count:
+                    suffix_count[suffix]=0
+                suffix_count[suffix]+=1
+            except IndexError:
+                pass
+        for suff,count in suffix_count.items():
+            if float(count/tot_files) > threshold:
+                ret_suffixes.append(suff)
+        return ret_suffixes
+    #Calculate using AVI algorithm
+    def get_truck_factor(self,path_of_interest:Optional[Iterable[Union[str|Path]]]=None,suffixes_of_interest:Optional[Iterable[Union[str]]]=set(),date_range:Optional[tuple[date,date]]=None,doa_threshold:float=0.75,coverage:float=0.5)->tuple[int,dict[Author,list[str]]]:
+        start=None
+        end=None
+        
+        if date_range and len(date_range)<=2:
+            try:
+                start,end=date_range
+            except ValueError:
+                start=date_range[0]
+        cov=coverage if coverage <=1 else 1/coverage
+        doa_th=doa_threshold if doa_threshold else 1/doa_threshold
+        unfiltered_files=map(lambda f: Path(f).relative_to(self.repo_path).as_posix() if isinstance(f,str) else f.relative_to(self.repo_path).as_posix() ,path_of_interest) if path_of_interest else self.get_commit_files(self.get_commit(end_date=end).commit_hash)
+        if isinstance(unfiltered_files,list):
+            logger.debug("Unfiltered files found",extra={"files":unfiltered_files})
+        author_files_counter:dict[str,list[str]]=dict()
         files_author_count:dict[str,int]=dict()
-        file_relative_commit:dict[str,list[Commit]]=dict()
+        file_relative_commit:dict[str,list[CommitInfo]]=dict()
         orphans=0
         tf=0
         tot_files=0
-        for commit in self.commits_info.values():
-            for file in commit.files:
-                if file not in file_relative_commit:
-                    file_relative_commit[file]=[]
-                file_relative_commit[file].append(commit)
-                files_author_count[file]=0
+        authors:dict[str,Author]=dict()
+        filters=suffixes_of_interest
+        if not suffixes_of_interest:   
+            filters=self.infer_programming_language(unfiltered_files)
+        exts=set(filters)
+        for file in filter(lambda file: check_extension(Path(file).suffix,exts)[0],unfiltered_files):
+            logger.debug(f"Checking file {file}")
+            file_relative_commit[file]=[]
+            files_author_count[file]=0
+            for cl in self.lazy_load_commits(relative_path=file,start_date=start,end_date=end,max_count=999):
+                file_relative_commit[file].extend(cl)
+                for c in cl:
+                    if c.author_email not in authors:
+                        authors[c.author_email]=Author(c.author_email,c.author_name)
+                        author_files_counter[c.author_email]=[]
+                    authors[c.author_email].commits_authored.append(c.commit_hash)
         tot_files=len(files_author_count.keys())
-        # print(file_relative_commit)
-        tuple_list=map(lambda item:(item,authors),file_relative_commit.items())
-        with ThreadPoolExecutor() as executor:
-            results=executor.map(self.calculate_file_DOA,tuple_list)
-        for result in results:
-            # print(result)
-            file,doas=result
+        for t in map(lambda item:(item,authors.values()),file_relative_commit.items()):
+            file,doas=self.calculate_file_DOA(t)
             for author,doa in doas.items():
                 max_doa=sorted(doas.values(),reverse=True)[0]
-                if float(doa/max_doa)>= doa_threshold:
-                    author_files_counter[author].append(file)
+                if float(doa/max_doa)>= doa_th:
+                    author_files_counter[author.email].append(file)
                     files_author_count[file]+=1
         author_sorted_list=sorted(((k,v) for k,v in author_files_counter.items()),key=lambda item:len(item[1]),reverse=True)
         logger.debug("Author sorted DOA list",extra=dict(author_list=author_sorted_list))
         i=int(0)
-        while orphans <= int(tot_files/2):
+        while orphans <= int(tot_files*cov):
             author,fs=author_sorted_list[i]
             i+=1
             for f in fs:
@@ -203,3 +282,39 @@ class RepoMiner():
                     break
         return (tf,author_files_counter)
     
+    # def update(self,fetch_all:bool=False,pull_all:bool=False):
+    #     if fetch_all:
+    #         self.git_repo.fetch("--all")
+    #     if pull_all:
+    #         self.git_repo.pull("--all")
+    #     # "--all","--name-only","--pretty=format:|{'commit': '1c85669eb58fc986d43eb7c878e03cb58fb4883d', 'abbreviated_commit': '1c85669', 'tree': 'c6a6edfde2001a68e123c724625faf7599f82371', 'abbreviated_tree': 'c6a6edf', 'parent': 'efe6fba7d02ad06bec603b57f2e5115b7ccd31d8', 'abbreviated_parent': 'efe6fba', 'refs': 'HEAD -> development, origin/development', 'encoding': '', 'subject': 'optimized truck factor function', 'sanitized_subject_line': 'optimized-truck-factor-function', 'body': '', 'commit_notes': '', 'verification_flag': 'N', 'signer': '', 'signer_key': '', 'author': {'name': 'Gerardo De Luisi', 'email': 'deluisigerardo@gmail.com', 'date': 'Sat, 8 Feb 2025 14:21:03 +0100'}, 'commiter': {'name': 'Gerardo De Luisi', 'email': 'deluisigerardo@gmail.com', 'date': 'Sat, 8 Feb 2025 14:21:03 +0100'}}
+    #     files:list[str]=self.git_repo.log("--all","--name-only","--pretty=format:|").split('|')
+    #     files=list(reversed([re.split(string=file.strip('\n\r'),pattern=r'\r\n|\n|\r') for file in files][1:]))
+    #     logs=re.split(string=self.git_repo.log("--all","--no-merges",'--pretty=format:{"commit": "%H","abbreviated_commit": "%h","tree": "%T","abbreviated_tree": "%t","parent": "%P","abbreviated_parent": "%p","refs": "%D","encoding": "%e","subject": "%s","sanitized_subject_line": "%f","body": "%b","commit_notes": "%N","verification_flag": "%G?","signer": "%GS","signer_key": "%GK","author": {"name": "%aN","email": "%aE","date": "%aD"},"commiter": {"name": "%cN","email": "%cE","date": "%cD"}}'),pattern=r'\r\n|\n|\r')
+    #     logs=reversed([json.loads(log) for log in logs])
+    #     author_dict:dict[Author,dict[str,list]]=dict()
+    #     for i,log in enumerate(logs):
+    #         auth=Author(log["author"]["email"],log["author"]["name"])
+    #         if not auth in author_dict:
+    #             author_dict[auth]=dict(files=set(),commits=list())
+    #         author_dict[auth]["files"].update(files[i])
+    #         author_dict[auth]["commits"].append(log["commit"])
+            
+    #         self.commits_info[log["commit"]]=CommitInfo(
+    #                                             author_email=log["author"]["email"],
+    #                                             author_name=log["author"]["name"],
+    #                                             commit_hash=log["commit"],
+    #                                             abbr_hash=log["abbreviated_commit"],
+    #                                             tree=log["tree"],
+    #                                             refs=log["refs"],
+    #                                             subject=log["subject"],
+    #                                             date=date.fromtimestamp(mktime(strptime(log["author"]["date"],"%a, %d %b %Y %H:%M:%S %z"))),
+    #                                             parent=log["parent"],
+    #                                             files=files[i])
+    #     for author,v in author_dict.items():
+    #         author.files_modifed=v["files"]
+    #         author.commits_authored=v["commits"]
+    #         self.authors.add(author)
+        # self.commit_list=[self.repo.commit(hash) for hash in self.commit_list_hashes]
+        # [commit.stats for commit in self.commit_list]
+        # self.truck_factor=self.get_truck_factor()[0]

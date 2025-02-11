@@ -78,7 +78,7 @@ def find_file_comments_with_locations(filename:Union[str,Path])->list[tuple[int,
         
     return find_comments_with_locations(content,ext=ext)
 
-def find_comments_with_locations(text:Union[str|list[str]],ext:ACCEPTED_EXTENSIONS)->list[tuple[int,int,str]]:
+def find_comments_with_locations(text:Union[str|list[str]],ext:str)->list[tuple[int,int,str]]:
     """Find all comments inside a string discriminating comments markers from code language inferred from the file extension 
 
     Args:
@@ -147,7 +147,7 @@ def find_satd_file(filepath:Union[Path|str],tags:set[str]={"TODO","FIXME","HACK"
     comments=find_file_comments_with_locations(filename=filepath)
     logger.debug(f"Found comments in file {filepath.as_posix() if isinstance(filepath,Path) else filepath}",extra={"comments":comments})
     return _find_satd(comments,tags)
-def find_satd(text:str,extension:ACCEPTED_EXTENSIONS,tags:set[str]={"TODO","FIXME","HACK","XXX"})->dict[int,str]:
+def find_satd(text:str,extension:str,tags:set[str]={"TODO","FIXME","HACK","XXX"})->dict[int,str]:
     """Finds all SATD in a text
 
     Args:

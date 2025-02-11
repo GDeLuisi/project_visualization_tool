@@ -1,16 +1,34 @@
 from  dataclasses import dataclass,field
 from datetime import date
 from time import strptime
-from typing import Literal
+from typing import Literal,get_args,Iterable
 import json
+from pathlib import Path
+# ACCEPTED_EXTENSIONS=Literal[".js",".py",".sh",".sql",".c",".cpp",".php",".html",".java",".rb"]
 ACCEPTED_EXTENSIONS=Literal[".js",".py",".sh",".sql",".c",".cpp",".php",".html",".java",".rb"]
+CONFIG_FOUND=False
+config_path=Path(__file__).joinpath("info","ext.json")
+if config_path.is_file():
+    with config_path.open() as f:
+        ACCEPTED_EXTENSIONS:dict[str,str]=json.load(f)
+    CONFIG_FOUND=True
+    
+def check_extension(ext:str,additional_extensions:Iterable[str]=[])->tuple[bool,str]:
+    if CONFIG_FOUND:
+        if ext not in ACCEPTED_EXTENSIONS:
+            return ext in additional_extensions,ext
+        return True,ACCEPTED_EXTENSIONS[ext]
+    if ext not in get_args(ACCEPTED_EXTENSIONS):
+        return ext in additional_extensions,ext
+    return True,ext
+
 # {'commit': '1c85669eb58fc986d43eb7c878e03cb58fb4883d', 'abbreviated_commit': '1c85669', 'tree': 'c6a6edfde2001a68e123c724625faf7599f82371', 'abbreviated_tree': 'c6a6edf', 'parent': 'efe6fba7d02ad06bec603b57f2e5115b7ccd31d8', 'abbreviated_parent': 'efe6fba', 'refs': 'HEAD -> development, origin/development', 'encoding': '', 'subject': 'optimized truck factor function', 'sanitized_subject_line': 'optimized-truck-factor-function', 'body': '', 'commit_notes': '', 'verification_flag': 'N', 'signer': '', 'signer_key': '', 'author': {'name': 'Gerardo De Luisi', 'email': 'deluisigerardo@gmail.com', 'date': 'Sat, 8 Feb 2025 14:21:03 +0100'}, 'commiter': {'name': 'Gerardo De Luisi', 'email': 'deluisigerardo@gmail.com', 'date': 'Sat, 8 Feb 2025 14:21:03 +0100'}}
 @dataclass
 class SATD():
     satdID: int
     commitID: str
     content: str
-    category: ACCEPTED_EXTENSIONS
+    category: str
     file: str
     
 @dataclass
