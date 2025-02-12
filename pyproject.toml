@@ -35,7 +35,7 @@ testpaths = [
 omit = [
   "src/utility/logs.py",
   "main.py",
-  "tests.py"
+  "tests.py",
   "src/gui/*"
 ]
 [project.scripts]
