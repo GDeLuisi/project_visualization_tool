@@ -69,7 +69,7 @@ jobs:
         if [ ${#uncovered_files[@]} -gt 0 ];then
           exit 1
         fi
-    - if: failure()
+    - if: failure()|cancelled()
       name: Read reports
       shell: bash
       run: |

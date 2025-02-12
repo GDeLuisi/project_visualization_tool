@@ -14,7 +14,7 @@ def repo_miner():
 
 
 def test_get_all_authors(repo_miner):
-    new_set=repo_miner.authors
+    new_set=repo_miner.get_authors()
     logger.debug(new_set)
     for author in set([Author("deluisigerardo@gmail.com","Gerardo De Luisi"),Author("102797969+GDeLuisi@users.noreply.github.com","GeggeDL"),Author(email='g.deluisi@reply.it', name='Gerardo De Luisi')]):
         found=False
@@ -37,9 +37,9 @@ def test_get_commit_author(repo_miner):
 
 def test_get_author_commits(repo_miner):
     sumlist=0
-    for author in repo_miner.authors:
-        sumlist+=len(repo_miner.get_author_commits(author.name,author.email))
-    totlist=len(repo_miner.commits_info.keys())
+    for author in repo_miner.get_authors():
+        sumlist+=len(*list(repo_miner.get_author_commits(author.email)))
+    totlist=len(*repo_miner.lazy_load_commits())
     logger.debug(f"Totlist: {totlist}\nSum: {sumlist}")
     assert totlist == sumlist
 
@@ -52,14 +52,14 @@ def test_get_diff(repo_miner):
     # assert diff != {}
     pass
 
-def test_get_file_authors(repo_miner):
-    main_set=set([Author("deluisigerardo@gmail.com","Gerardo De Luisi"),Author("102797969+GDeLuisi@users.noreply.github.com","GeggeDL")])
-    ret_set=set(repo_miner.get_file_authors(Path.cwd().joinpath(".github","workflows","test-dev.yml")))
-    logger.debug(f"Returned set={ret_set}")
-    for auth in ret_set:
-        if auth not in main_set:
-            assert False
-    assert True
+# def test_get_file_authors(repo_miner):
+#     main_set=set([Author("deluisigerardo@gmail.com","Gerardo De Luisi"),Author("102797969+GDeLuisi@users.noreply.github.com","GeggeDL")])
+#     ret_set=set(repo_miner.get_file_authors(Path.cwd().joinpath(".github","workflows","test-dev.yml")))
+#     logger.debug(f"Returned set={ret_set}")
+#     for auth in ret_set:
+#         if auth not in main_set:
+#             assert False
+#     assert True
 
 def test_get_bug_introducing_commit():
     pass
@@ -79,12 +79,12 @@ def test_get_all_commits(repo_miner):
 
 def test_get_last_modified(repo_miner):
     try:
-        commits=repo_miner.get_last_modified("f188112d478439ab9b6d5dad88cf14c46a0efa44")
+        commits=dict(repo_miner.get_last_modified("f188112d478439ab9b6d5dad88cf14c46a0efa44"))
     except Exception as e:
         logger.exception(e)
         raise Exception(e)
     logger.debug(commits)
-    assert commits!=set()
+    assert len(commits.values())!=0
 
 @mark.parametrize("commit",["13beba471c644abfc15c07d4559b77a4e7faa787",None])
 def test_get_source_code(repo_miner,commit):

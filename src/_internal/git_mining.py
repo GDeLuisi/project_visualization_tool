@@ -20,7 +20,7 @@ import json
 logger=getLogger("Repo Miner")
 #FIXME restructure whole class with recent optimization 
 class RepoMiner():
-    COMMIT_PRETTY_FORMAT='--pretty=format:{"commit": "%H","abbreviated_commit": "%h","tree": "%T","abbreviated_tree": "%t","parent": "%P","abbreviated_parent": "%p","refs": "%D","encoding": "%e","subject": "%s","sanitized_subject_line": "%f","body": "%b","commit_notes": "%N","verification_flag": "%G?","signer": "%GS","signer_key": "%GK","author": {"name": "%aN","email": "%aE","date": "%aD"},"commiter": {"name": "%cN","email": "%cE","date": "%cD"}}'
+    COMMIT_PRETTY_FORMAT='--pretty=format:{"commit": "%H","abbreviated_commit": "%h","tree": "%T","abbreviated_tree": "%t","parent": "%P","abbreviated_parent": "%p","refs": "%D","encoding": "%e","subject": "%s","sanitized_subject_line": "%f","body": "%b","commit_notes": "%N","verification_flag": "%G?","signer": "%GS","signer_key": "%GK","author": {"name": "%aN","email": "%aE","date": "%aD"},"commiter": {"name": "%cN","email": "%cE","date": "%cI"}}'
     def __init__(self,repo_path:Union[Path,str]):
         self.repo_path=repo_path
         if isinstance(repo_path,Path):
@@ -57,8 +57,10 @@ class RepoMiner():
             commit_range=commit_range+"...HEAD"
         return commit_range
                 
-    def lazy_load_commits(self,no_merges:bool=True, max_count:int=50,filepath:Optional[Union[str,Path]]=None,relative_path:Optional[Union[str,Path]]=None,start_date:Optional[date]=None,end_date:Optional[date]=None,start_commit:Optional[str]=None,end_commit:Optional[str]=None,author:Optional[str]=None)->Generator[list[CommitInfo],None,None]:
-        arglist=["--no-commit-header",f"--max-count={max_count}",self.COMMIT_PRETTY_FORMAT]
+    def lazy_load_commits(self,no_merges:bool=True, max_count:int=None,filepath:Optional[Union[str,Path]]=None,relative_path:Optional[Union[str,Path]]=None,start_date:Optional[date]=None,end_date:Optional[date]=None,start_commit:Optional[str]=None,end_commit:Optional[str]=None,author:Optional[str]=None)->Generator[list[CommitInfo],None,None]:
+        arglist=["--no-commit-header",self.COMMIT_PRETTY_FORMAT]
+        if max_count:
+            arglist.insert(0,f"--max-count={max_count}")
         if not no_merges:
             arglist.insert(0,"--no-merges")
         if author:
@@ -76,6 +78,11 @@ class RepoMiner():
         logger.debug("Loading logs with args",extra={"git_args":arglist})
         while not finished:
             logs=re.split(string=self.git_repo.rev_list(arglist),pattern=r'\r\n|\n|\r')
+            logger.debug("Loaded commits",extra={"commits":logs})
+            if not logs[0] or not logs:
+                logger.debug("Finished Loading")
+                finished=True
+                return []
             logs=[json.loads(log) for log in logs]
             commit_list:list[CommitInfo]=[]
             for log in logs:
@@ -91,9 +98,11 @@ class RepoMiner():
                                                     parent=log["parent"],
                                                     files=[])
                 commit_list.append(commit_info)
-            last_revision=commit_info.parent
+            last_revision=commit_info.parent.strip()
             yield commit_list
-            finished = not last_revision.strip()
+            previous=arglist.pop()
+            arglist.append(last_revision)
+            finished = not last_revision or previous==last_revision
     
     def get_branches(self)->Generator[str,None,None]:
         for head in self.repo.branches:
@@ -114,13 +123,17 @@ class RepoMiner():
                     if c.author_email not in authors:
                         authors[c.author_email]=author
                     authors[c.author_email].commits_authored.append(c.commit_hash)
-        
+            else:
+                author=Author(commit.author_email,commit.author_name)
+                if commit.author_email not in authors:
+                    authors[commit.author_email]=author
+                authors[commit.author_email].commits_authored.append(commit.commit_hash)
         ret_authors=set(authors.values())
         return ret_authors
     
     def get_authors_in_range(self,start_date:Optional[date]=None,end_date:Optional[date]=None)->set[Author]:
         authors:dict[str,Author]=dict()
-        for commit in self.lazy_load_commits(start_date=start_date,end_date=end_date,max_count=999):
+        for commit in self.lazy_load_commits(start_date=start_date,end_date=end_date):
             for c in commit:
                 author=Author(c.author_email,c.author_name)
                 if c.author_email not in authors:
@@ -134,12 +147,12 @@ class RepoMiner():
         gen=None
         return commit
 
-    def get_last_modified(self,commit:str)->Generator[CommitInfo,None,None]:
+    def get_last_modified(self,commit:str)->Generator[tuple[str,set[str]],None,None]:
         git_repo=git.Git(self.repo_path)
-        for k in git_repo.get_commits_last_modified_lines(git_repo.get_commit(commit)).keys():
-            yield self.commits_info[k]
+        for k,v in git_repo.get_commits_last_modified_lines(git_repo.get_commit(commit)).items():
+            yield (k,v)
             
-    def get_author_commits(self,name:Optional[str]=None,email:Optional[str]=None)->Generator[CommitInfo,None,None]:
+    def get_author_commits(self,name:Optional[str]=None,email:Optional[str]=None)->Generator[list[CommitInfo],None,None]:
         if not name and not email or name and email:
             raise ValueError("Only one between name and email are required")
         val=name if name else email
@@ -151,7 +164,7 @@ class RepoMiner():
         file_path=file
         if isinstance(file,str):
             file_path=Path(file)
-        target_commit=self.git_repo.commit(commit)
+        target_commit=self.repo.commit(commit)
         tree=target_commit.tree
         try:
             relative_path=file_path.relative_to(self.repo_path)
@@ -251,7 +264,7 @@ class RepoMiner():
             logger.debug(f"Checking file {file}")
             file_relative_commit[file]=[]
             files_author_count[file]=0
-            for cl in self.lazy_load_commits(relative_path=file,start_date=start,end_date=end,max_count=999):
+            for cl in self.lazy_load_commits(relative_path=file,start_date=start,end_date=end):
                 file_relative_commit[file].extend(cl)
                 for c in cl:
                     if c.author_email not in authors:
