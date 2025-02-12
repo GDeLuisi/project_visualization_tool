@@ -36,6 +36,7 @@ omit = [
   "src/utility/logs.py",
   "main.py",
   "tests.py"
+  "src/gui/*"
 ]
 [project.scripts]
 project-viewer = "src.app.cli:main"
