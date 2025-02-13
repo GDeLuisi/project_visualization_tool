@@ -34,6 +34,7 @@ jobs:
         echo "Setting tracking of all branches"
         "C:\Program Files\Git\bin\git.exe" config --global remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*" 
         "C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --all -t --unshallow 
+        "C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch core
         "C:\Program Files\Git\bin\git.exe" -c protocol.version=2 pull --all
         "C:\Program Files\Git\bin\git.exe" -c protocol.version=2 branch -l
     - if: runner.os != 'Windows'
@@ -42,7 +43,8 @@ jobs:
       run: |
         echo "Setting tracking of all branches"
         /usr/bin/git config --global remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
-        /usr/bin/git -c protocol.version=2 fetch --all   -t --unshallow 
+        /usr/bin/git -c protocol.version=2 fetch --all   -t --unshallow
+        /usr/bin/git -c protocol.version=2 core
         /usr/bin/git -c protocol.version=2 pull --all
         /usr/bin/git -c protocol.version=2 branch -l
     - name: Install dependencies
