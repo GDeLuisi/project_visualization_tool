@@ -142,6 +142,8 @@ class RepoMiner():
         return set(authors.values())
     
     def get_commit(self,commit_hash:Optional[str]=None,end_date:Optional[date]=None)->CommitInfo:
+        if commit_hash and end_date:
+            raise ValueError("Only one between commit_hash and end_date can be used")
         gen=self.lazy_load_commits(max_count=1,end_commit=commit_hash,end_date=end_date)
         commit=next(gen)[0]
         gen=None
