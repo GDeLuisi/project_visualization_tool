@@ -248,7 +248,18 @@ class RepoMiner():
                 start=date_range[0]
         cov=coverage if coverage <=1 else 1/coverage
         doa_th=doa_threshold if doa_threshold else 1/doa_threshold
-        unfiltered_files=map(lambda f: Path(f).relative_to(self.repo_path).as_posix() if isinstance(f,str) else f.relative_to(self.repo_path).as_posix() ,path_of_interest) if path_of_interest else self.get_commit_files(self.get_commit(end_date=end).commit_hash)
+        if path_of_interest: 
+            unfiltered_files:set[str]=set()
+            for p in path_of_interest:
+                n_p=""
+                try:
+                    n_p=Path(p).relative_to(self.repo_path).as_posix() if isinstance(p,Path) else p
+                except ValueError:
+                    n_p=p.as_posix() if isinstance(p,Path) else p
+                finally:
+                    unfiltered_files.add(n_p)
+        else: 
+            unfiltered_files=set(self.get_commit_files(self.get_commit(end_date=end).commit_hash))
         if isinstance(unfiltered_files,list):
             logger.debug("Unfiltered files found",extra={"files":unfiltered_files})
         author_files_counter:dict[str,list[str]]=dict()
