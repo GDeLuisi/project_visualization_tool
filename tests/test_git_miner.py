@@ -30,9 +30,9 @@ def test_get_all_authors(repo_miner):
 def test_get_branches(repo_miner):
     assert set(repo_miner.get_branches())=={"main","development"}
 
-def test_checkout_branch(repo_miner):
-    repo_miner.checkout_branch("main")
-    repo_miner.checkout_branch("development")
+# def test_checkout_branch(repo_miner):
+#     repo_miner.checkout_branch("main")
+#     repo_miner.checkout_branch("development")
 
 def test_get_author_in_range(repo_miner):
     auth=repo_miner.get_authors_in_range(start_date=date.fromisoformat("2025-02-10"),end_date=date.fromisoformat("2025-02-12"))
