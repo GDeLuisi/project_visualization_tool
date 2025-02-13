@@ -111,37 +111,65 @@ class RepoMiner():
     def checkout_branch(self,branch:str):
         self.git_repo.switch(branch)
     
-    def get_authors(self,commit_list:Optional[Iterable[CommitInfo]]=None)->set[Author]:
-        cl=commit_list
-        authors:dict[str,Author]=dict()
-        ret_authors=set()
-        if not commit_list:
-            cl=self.lazy_load_commits()
-        for commit in cl:
-            if isinstance(commit,list):
-                for c in commit:
-                    author=Author(c.author_email,c.author_name)
-                    if c.author_email not in authors:
-                        authors[c.author_email]=author
-                    authors[c.author_email].commits_authored.append(c.commit_hash)
-            else:
-                author=Author(commit.author_email,commit.author_name)
-                if commit.author_email not in authors:
-                    authors[commit.author_email]=author
-                authors[commit.author_email].commits_authored.append(commit.commit_hash)
-        ret_authors=set(authors.values())
+    def get_authors(self)->set[Author]:
+        pattern=re.compile(r'([\w\s]+) <([a-z0-9A-Z!#$%@.&*+\/=?^_{|}~-]+)> \(\d+\)')
+        authors:set[Author]=set()
+        per_author:list[str]=self.git_repo.shortlog("-e","--format=%H","HEAD").strip('\n').split('\n\n')
+        for a_str in per_author:
+            line_list=a_str.split('\n')
+            l=line_list.pop(0).strip()
+            logger.debug(l)
+            name,email=re.match(pattern=pattern,string=l).groups()
+            auth=Author(email,name)
+            for line in line_list:
+                auth.commits_authored.append(line.strip())
+            authors.add(auth)
+        return authors
+        
+        # cl=commit_list
+        # authors:dict[str,Author]=dict()
+        # ret_authors=set()
+        # if not commit_list:
+        #     cl=self.lazy_load_commits()
+        # for commit in cl:
+        #     if isinstance(commit,list):
+        #         for c in commit:
+        #             author=Author(c.author_email,c.author_name)
+        #             if c.author_email not in authors:
+        #                 authors[c.author_email]=author
+        #             authors[c.author_email].commits_authored.append(c.commit_hash)
+        #     else:
+        #         author=Author(commit.author_email,commit.author_name)
+        #         if commit.author_email not in authors:
+        #             authors[commit.author_email]=author
+        #         authors[commit.author_email].commits_authored.append(commit.commit_hash)
+        # ret_authors=set(authors.values())
         return ret_authors
-    
+
     def get_authors_in_range(self,start_date:Optional[date]=None,end_date:Optional[date]=None)->set[Author]:
-        authors:dict[str,Author]=dict()
-        logger.debug(f"Searchin for authors in range {str(start_date)} - {str(end_date)}")
-        for commit in self.lazy_load_commits(start_date=start_date,end_date=end_date):
-            for c in commit:
-                author=Author(c.author_email,c.author_name)
-                if c.author_email not in authors:
-                    authors[c.author_email]=author
-                authors[c.author_email].commits_authored.append(c.commit_hash)
-        return set(authors.values())
+        pattern=re.compile(r'([\w\s]+) <([a-z0-9A-Z!#$%@.&*+\/=?^_{|}~-]+)> \(\d+\)')
+        authors:set[Author]=set()
+        arglist=self._load_commits_date_range(start_date,end_date)
+        per_author:list[str]=self.git_repo.shortlog(*arglist,"-e","--format=%H","HEAD").strip('\n').split('\n\n')
+        for a_str in per_author:
+            line_list=a_str.split('\n')
+            l=line_list.pop(0).strip()
+            logger.debug(l)
+            name,email=re.match(pattern=pattern,string=l).groups()
+            auth=Author(email,name)
+            for line in line_list:
+                auth.commits_authored.append(line.strip())
+            authors.add(auth)
+        return authors
+        # authors:dict[str,Author]=dict()
+        # logger.debug(f"Searchin for authors in range {str(start_date)} - {str(end_date)}")
+        # for commit in self.lazy_load_commits(start_date=start_date,end_date=end_date):
+        #     for c in commit:
+        #         author=Author(c.author_email,c.author_name)
+        #         if c.author_email not in authors:
+        #             authors[c.author_email]=author
+        #         authors[c.author_email].commits_authored.append(c.commit_hash)
+        # return set(authors.values())
     
     def get_commit(self,commit_hash:Optional[str]=None,end_date:Optional[date]=None)->CommitInfo:
         if commit_hash and end_date:

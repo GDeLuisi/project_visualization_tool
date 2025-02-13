@@ -16,7 +16,7 @@ def repo_miner():
 
 def test_get_all_authors(repo_miner):
     new_set=repo_miner.get_authors()
-    logger.debug(new_set)
+    logger.debug(f"Found authors {new_set}")
     for author in set([Author("deluisigerardo@gmail.com","Gerardo De Luisi"),Author("102797969+GDeLuisi@users.noreply.github.com","GeggeDL"),Author(email='g.deluisi@reply.it', name='Gerardo De Luisi')]):
         found=False
         for ath in new_set:
@@ -36,6 +36,7 @@ def test_checkout_branch(repo_miner):
 
 def test_get_author_in_range(repo_miner):
     auth=repo_miner.get_authors_in_range(start_date=date.fromisoformat("2025-02-10"),end_date=date.fromisoformat("2025-02-12"))
+    logger.debug(f"Found authors {auth}")
     assert 1==len(auth)
     assert auth.pop().email =="deluisigerardo@gmail.com"
 
@@ -106,16 +107,37 @@ def test_get_bug_introducing_commit():
 
 def test_get_bug_resolving_commit():
     pass
-
-def test_get_all_commits(repo_miner):
+#date.fromisoformat("2025-02-10") date.fromisoformat("2025-02-12")
+#TODO make it more comprehensive of equivalence classes on extreme values
+commits_args=[
+    (True,None,None,None,None,None,None,None),
+    (False,None,None,None,None,None,None,None),
+    (True,10,None,None,None,None,None,None),
+    (False,None,'C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src/app/app.py',None,None,None,None,None,"success"),
+    (True,None,None,"src/app/cli.py",None,None,None,None,"success"),
+    (False,None,'C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src/app/app.py',"src/app/cli.py",None,None,None,None,"error"),
+    (True,None,None,"src/app/cli.py",None,None,None,None,"success"),
+    (False,None,None,None,date.fromisoformat("2025-02-12"),None,None,None,"success"),
+    (False,None,None,"src/app/cli.py",None,date.fromisoformat("2025-02-12"),None,None,"success"),
+    (False,None,None,"src/app/cli.py",date.fromisoformat("2025-02-10"),date.fromisoformat("2025-02-12"),None,None,"success"),
+    (False,None,None,"src/app/cli.py",date.fromisoformat("2025-02-12"),date.fromisoformat("2025-02-10"),None,None,"error"),
+    (False,None,None,"src/app/cli.py",None,None,"4ba76502c258bf81ebb8cd5db3860eda165536a4","fc476fd9aaced5e81de149e050a79cd8cc544cdd","success"),
+    (False,None,None,None,date.fromisoformat("2025-02-10"),date.fromisoformat("2025-02-12"),"4ba76502c258bf81ebb8cd5db3860eda165536a4","fc476fd9aaced5e81de149e050a79cd8cc544cdd","error")
+]
+@mark.parametrize("no_merges,max_count,filepath,relative_path,start_date,end_date,start_commit,end_commit,author,expected",commits_args)
+def test_get_lazy_commits(repo_miner,no_merges,max_count,filepath,relative_path,start_date,end_date,start_commit,end_commit,author,expected):
     # logger.debug(list(Git(Path.cwd()).get_list_commits()))
-    commits=[]
-    for commit_list in repo_miner.lazy_load_commits():
-        logger.debug("Lazy load",extra={"commits":commit_list})
-        commits.extend(commit_list)
-    logger.debug("Full extracted commits",extra={"commits":commits})
-    logger.debug("Len extracted commits ",extra={"len":len(commits)})
-    assert True
+    if expected=="success":
+        commits=[]
+        for commit_list in repo_miner.lazy_load_commits(no_merges,max_count,filepath,relative_path,start_date,end_date,start_commit,end_commit,author):
+            logger.debug("Lazy load",extra={"commits":commit_list})
+            commits.extend(commit_list)
+        logger.debug("Full extracted commits",extra={"commits":commits})
+        logger.debug("Len extracted commits ",extra={"len":len(commits)})
+        assert True
+    else:
+        with raises(Exception):
+            repo_miner.lazy_load_commits(no_merges,max_count,filepath,relative_path,start_date,end_date,start_commit,end_commit,author)
 
 def test_get_last_modified(repo_miner):
     try:
