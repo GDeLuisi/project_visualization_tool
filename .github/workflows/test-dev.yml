@@ -44,7 +44,7 @@ jobs:
         /usr/bin/git config --global remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
         /usr/bin/git -c protocol.version=2 fetch --all   -t --unshallow
         /usr/bin/git -c protocol.version=2 pull --all
-        for i in $(/usr/bin/git branch -a | grep remote | grep -v HEAD | grep -v master); do /usr/bin/git branch  branch --track ${i#remotes/origin/} $i; done
+        for i in $(/usr/bin/git branch -a | grep remote | grep -v HEAD | grep -v master); do /usr/bin/git branch --track ${i#remotes/origin/} $i; done
 
     - name: Install dependencies
       shell: bash
