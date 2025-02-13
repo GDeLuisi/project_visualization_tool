@@ -113,9 +113,9 @@ commits_args=[
     (True,None,None,None,None,None,None,None,None,"success"),
     (False,None,None,None,None,None,None,None,None,"success"),
     (True,10,None,None,None,None,None,None,None,"success"),
-    (False,None,'C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src/app/app.py',None,None,None,None,None,None,"success"),
+    (False,None,'project_visualization_tool/src/app/app.py',None,None,None,None,None,None,"success"),
     (True,None,None,"src/app/cli.py",None,None,None,None,None,"success"),
-    (False,None,'C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src/app/app.py',"src/app/cli.py",None,None,None,None,None,"error"),
+    (False,None,'project_visualization_tool/src/app/app.py',"src/app/cli.py",None,None,None,None,None,"error"),
     (True,None,None,"src/app/cli.py",None,None,None,None,None,"success"),
     (False,None,None,None,date.fromisoformat("2025-02-12"),None,None,None,None,"success"),
     (False,None,None,"src/app/cli.py",None,date.fromisoformat("2025-02-12"),None,None,None,"success"),
@@ -123,7 +123,7 @@ commits_args=[
     (False,None,None,"src/app/cli.py",date.fromisoformat("2025-02-12"),date.fromisoformat("2025-02-10"),None,None,None,"error"),
     (False,None,None,"src/app/cli.py",None,None,"4ba76502c258bf81ebb8cd5db3860eda165536a4","fc476fd9aaced5e81de149e050a79cd8cc544cdd",None,"success"),
     (False,None,None,"src/app/cli.py",None,None,"4ba76502c258bf81ebb8cd5db3860eda165536a4","fc476fd9aaced5e81de149e050a79cd8cc544cdd","deluisigerardo@gmail.com","success"),
-    (False,None,None,None,date.fromisoformat("2025-02-10"),date.fromisoformat("2025-02-12"),"4ba76502c258bf81ebb8cd5db3860eda165536a4","fc476fd9aaced5e81de149e050a79cd8cc544cdd",None,"error")
+    (False,None,None,None,date.fromisoformat("2025-02-10"),date.fromisoformat("2025-02-12"),"4ba76502c258bf81ebb8cd5db3860eda165536a4","fc476fd9aaced5e81de149e050a79cd8cc544cdd",None,"success")
 ]
 @mark.parametrize("no_merges,max_count,filepath,relative_path,start_date,end_date,start_commit,end_commit,author,expected",commits_args)
 def test_get_lazy_commits(repo_miner,no_merges,max_count,filepath,relative_path,start_date,end_date,start_commit,end_commit,author,expected):
