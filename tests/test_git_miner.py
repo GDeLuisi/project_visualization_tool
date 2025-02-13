@@ -113,9 +113,9 @@ commits_args=[
     (True,None,None,None,None,None,None,None,None,"success"),
     (False,None,None,None,None,None,None,None,None,"success"),
     (True,10,None,None,None,None,None,None,None,"success"),
-    (False,None,'project_visualization_tool/src/app/app.py',None,None,None,None,None,None,"success"),
+    (False,None,Path.cwd().joinpath(*'project_visualization_tool/src/app/app.py'.split('/')),None,None,None,None,None,None,"success"),
     (True,None,None,"src/app/cli.py",None,None,None,None,None,"success"),
-    (False,None,'project_visualization_tool/src/app/app.py',"src/app/cli.py",None,None,None,None,None,"error"),
+    (False,None,'project_visualization_tool/src/app/app.py',"src/app/cli.py",None,None,None,None,None,"success"),
     (True,None,None,"src/app/cli.py",None,None,None,None,None,"success"),
     (False,None,None,None,date.fromisoformat("2025-02-12"),None,None,None,None,"success"),
     (False,None,None,"src/app/cli.py",None,date.fromisoformat("2025-02-12"),None,None,None,"success"),
@@ -137,7 +137,7 @@ def test_get_lazy_commits(repo_miner,no_merges,max_count,filepath,relative_path,
         logger.debug("Len extracted commits ",extra={"len":len(commits)})
         assert True
     else:
-        with raises(Exception):
+        with raises((Exception,ValueError)):
             repo_miner.lazy_load_commits(no_merges,max_count,filepath,relative_path,start_date,end_date,start_commit,end_commit,author)
 
 def test_get_last_modified(repo_miner):

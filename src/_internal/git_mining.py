@@ -34,7 +34,7 @@ class RepoMiner():
         arglist=[]
         try:
             if start_date > end_date:
-                raise ValueError("Start date cannot come after end date")
+                raise SyntaxError("Start date cannot come after end date")
         except TypeError:
             pass
         finally:
