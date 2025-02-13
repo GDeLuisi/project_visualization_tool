@@ -36,13 +36,14 @@ class RepoMiner():
             if start_date < end_date:
                 raise ValueError("Start date cannot come after end date")
         except TypeError:
+            pass
+        finally:
             start_string=f"--since={start_date.isoformat()}" if start_date else None
             end_string=f"--before={end_date.isoformat()}" if end_date else None
             if start_string:
                 arglist.append(start_string)
             if end_string:
                 arglist.append(end_string)
-        finally:
             return arglist
                 
     def _load_commits_commit_range(self,start_commit:Optional[str]=None,end_commit:Optional[str]=None)->str:
@@ -133,6 +134,7 @@ class RepoMiner():
     
     def get_authors_in_range(self,start_date:Optional[date]=None,end_date:Optional[date]=None)->set[Author]:
         authors:dict[str,Author]=dict()
+        logger.debug(f"Searchin for authors in range {str(start_date)} - {str(end_date)}")
         for commit in self.lazy_load_commits(start_date=start_date,end_date=end_date):
             for c in commit:
                 author=Author(c.author_email,c.author_name)
@@ -220,21 +222,24 @@ class RepoMiner():
             author_doa[author]=doa
         return (filepath,author_doa)
     
-    def infer_programming_language(self,files:Iterable[str],threshold:float=0.75)->list[str]:
+    def infer_programming_language(self,files:Iterable[str],threshold:float=0.35)->list[str]:
+        #TODO add None files to fetch from HEAD files
         suffix_count:dict[str,int]=dict()
-        tot_files=len(files)
+        fs=set(files)
+        tot_files=len(fs)
         ret_suffixes=list()
-        for file in files:
+        for file in fs:
             try:
-                suffix=file.rsplit(".")[1]
+                suffix=file.rsplit(".",maxsplit=1)[1]
                 if suffix not in suffix_count:
                     suffix_count[suffix]=0
                 suffix_count[suffix]+=1
             except IndexError:
                 pass
         for suff,count in suffix_count.items():
-            if float(count/tot_files) > threshold:
-                ret_suffixes.append(suff)
+            logger.debug(f"Found suffix {suff} {count} times on {tot_files} files")
+            if float(count/tot_files) >= threshold:
+                ret_suffixes.append("."+suff)
         return ret_suffixes
     #Calculate using AVI algorithm
     def get_truck_factor(self,path_of_interest:Optional[Iterable[Union[str|Path]]]=None,suffixes_of_interest:Optional[Iterable[Union[str]]]=set(),date_range:Optional[tuple[date,date]]=None,doa_threshold:float=0.75,coverage:float=0.5)->tuple[int,dict[Author,list[str]]]:
