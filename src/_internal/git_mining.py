@@ -125,26 +125,6 @@ class RepoMiner():
                 auth.commits_authored.append(line.strip())
             authors.add(auth)
         return authors
-        
-        # cl=commit_list
-        # authors:dict[str,Author]=dict()
-        # ret_authors=set()
-        # if not commit_list:
-        #     cl=self.lazy_load_commits()
-        # for commit in cl:
-        #     if isinstance(commit,list):
-        #         for c in commit:
-        #             author=Author(c.author_email,c.author_name)
-        #             if c.author_email not in authors:
-        #                 authors[c.author_email]=author
-        #             authors[c.author_email].commits_authored.append(c.commit_hash)
-        #     else:
-        #         author=Author(commit.author_email,commit.author_name)
-        #         if commit.author_email not in authors:
-        #             authors[commit.author_email]=author
-        #         authors[commit.author_email].commits_authored.append(commit.commit_hash)
-        # ret_authors=set(authors.values())
-        return ret_authors
 
     def get_authors_in_range(self,start_date:Optional[date]=None,end_date:Optional[date]=None)->set[Author]:
         pattern=re.compile(r'([\w\s]+) <([a-z0-9A-Z!#$%@.&*+\/=?^_{|}~-]+)> \(\d+\)')
