@@ -33,12 +33,14 @@ jobs:
         git config --global core.eol lf
         "C:\Program Files\Git\bin\git.exe" -c protocol.version=2 fetch --all --unshallow 
         "C:\Program Files\Git\bin\git.exe" -c protocol.version=2 pull --all 
+        "C:\Program Files\Git\bin\git.exe" -c protocol.version=2 branch -l
     - if: runner.os != 'Windows'
       name: Config for Unix
       shell: bash
       run: |
         /usr/bin/git -c protocol.version=2 fetch --all --unshallow 
         /usr/bin/git -c protocol.version=2 pull --all
+        /usr/bin/git -c protocol.version=2 branch -l
     - name: Install dependencies
       shell: bash
       run: |
