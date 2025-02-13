@@ -110,9 +110,9 @@ def test_get_bug_resolving_commit():
 #date.fromisoformat("2025-02-10") date.fromisoformat("2025-02-12")
 #TODO make it more comprehensive of equivalence classes on extreme values
 commits_args=[
-    (True,None,None,None,None,None,None,None),
-    (False,None,None,None,None,None,None,None),
-    (True,10,None,None,None,None,None,None),
+    (True,None,None,None,None,None,None,None,"success"),
+    (False,None,None,None,None,None,None,None,"success"),
+    (True,10,None,None,None,None,None,None,"success"),
     (False,None,'C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src/app/app.py',None,None,None,None,None,"success"),
     (True,None,None,"src/app/cli.py",None,None,None,None,"success"),
     (False,None,'C:/Users/g.deluisi/Desktop/Uni/SE/project_visualization_tool/src/app/app.py',"src/app/cli.py",None,None,None,None,"error"),
