@@ -32,12 +32,15 @@ class RepoMiner():
     def _load_commits_date_range(self,start_date:Optional[date]=None,end_date:Optional[date]=None)->list[str]:
         # start,end = start_date,end_date if start_date>end_date else end_date,start_date
         arglist=[]
+        raise_exc=False
         try:
             if start_date > end_date:
-                raise SyntaxError("Start date cannot come after end date")
+                raise_exc=True
         except TypeError:
             pass
         finally:
+            if raise_exc:
+                raise SyntaxError("Start date cannot come after end date")
             start_string=f"--since={start_date.isoformat()}" if start_date else None
             end_string=f"--before={end_date.isoformat()}" if end_date else None
             if start_string:
@@ -57,26 +60,9 @@ class RepoMiner():
         else:
             commit_range=commit_range+"...HEAD"
         return commit_range
-                
-    def lazy_load_commits(self,no_merges:bool=True, max_count:int=None,filepath:Optional[Union[str,Path]]=None,relative_path:Optional[Union[str,Path]]=None,start_date:Optional[date]=None,end_date:Optional[date]=None,start_commit:Optional[str]=None,end_commit:Optional[str]=None,author:Optional[str]=None)->Generator[list[CommitInfo],None,None]:
-        arglist=["--no-commit-header",self.COMMIT_PRETTY_FORMAT]
-        if max_count:
-            arglist.insert(0,f"--max-count={max_count}")
-        if not no_merges:
-            arglist.insert(0,"--no-merges")
-        if author:
-            arglist.insert(0,f"--author={author}")
-        arglist.extend(self._load_commits_date_range(start_date,end_date))
-        if not filepath or relative_path:
-            arglist.append(self._load_commits_commit_range(start_commit,end_commit))
-        elif relative_path:
-            p=Path(relative_path).as_posix() if isinstance(relative_path,str) else relative_path.as_posix()
-            arglist.extend(["--follow",p])
-        else:
-            p=Path(filepath).relative_to(self.repo_path).as_posix() if isinstance(filepath,str) else filepath.relative_to(self.repo_path).as_posix()
-            arglist.extend(["--follow",p])
+    
+    def _rev_list(self,arglist:list[str])->Generator[list[CommitInfo],None,None]:
         finished=False
-        logger.debug("Loading logs with args",extra={"git_args":arglist})
         while not finished:
             logs=re.split(string=self.git_repo.rev_list(arglist),pattern=r'\r\n|\n|\r')
             logger.debug("Loaded commits",extra={"commits":logs})
@@ -104,6 +90,73 @@ class RepoMiner():
             previous=arglist.pop()
             arglist.append(last_revision)
             finished = not last_revision or previous==last_revision
+            
+    def _log(self,arglist:list[str],follow:bool=False)->Generator[list[CommitInfo],None,None]:
+        finished=False
+        while not finished:
+            logs=re.split(string=self.git_repo.log(arglist),pattern=r'\r\n|\n|\r')
+            logger.debug("Loaded commits",extra={"commits":logs})
+            if not logs[0] or not logs:
+                logger.debug("Finished Loading")
+                finished=True
+                return []
+            logs=[json.loads(log) for log in logs]
+            commit_list:list[CommitInfo]=[]
+            for log in logs:
+                commit_info=CommitInfo(
+                                                    author_email=log["author"]["email"],
+                                                    author_name=log["author"]["name"],
+                                                    commit_hash=log["commit"],
+                                                    abbr_hash=log["abbreviated_commit"],
+                                                    tree=log["tree"],
+                                                    refs=log["refs"],
+                                                    subject=log["subject"],
+                                                    date=date.fromtimestamp(mktime(strptime(log["author"]["date"],"%a, %d %b %Y %H:%M:%S %z"))),
+                                                    parent=log["parent"],
+                                                    files=[])
+                commit_list.append(commit_info)
+            last_revision=commit_info.parent.strip()
+            yield commit_list
+            if follow:
+                file=arglist.pop()
+                flag=arglist.pop()
+                arglist.append(last_revision)
+                arglist.append(flag)
+                arglist.append(file)
+                finished = not last_revision
+            else:
+                previous=arglist.pop()
+                arglist.append(last_revision)
+                finished = not last_revision or previous==last_revision
+        
+    def lazy_load_commits(self,no_merges:bool=True, max_count:int=None,filepath:Optional[Union[str,Path]]=None,relative_path:Optional[Union[str,Path]]=None,start_date:Optional[date]=None,end_date:Optional[date]=None,start_commit:Optional[str]=None,end_commit:Optional[str]=None,author:Optional[str]=None)->Generator[list[CommitInfo],None,None]:
+        follow_files=False
+        arglist=[self.COMMIT_PRETTY_FORMAT]
+        if max_count:
+            arglist.insert(0,f"--max-count={max_count}")
+        if not no_merges:
+            arglist.insert(0,"--no-merges")
+        if author:
+            arglist.insert(0,f"--author={author}")
+        arglist.extend(self._load_commits_date_range(start_date,end_date))
+        if not filepath and not relative_path:
+            arglist.append(self._load_commits_commit_range(start_commit,end_commit))
+        elif relative_path:
+            p=Path(relative_path).as_posix() if isinstance(relative_path,str) else relative_path.as_posix()
+            arglist.extend(["--follow",p])
+            follow_files=True
+        else:
+            p=Path(filepath).relative_to(self.repo_path).as_posix() if isinstance(filepath,str) else filepath.relative_to(self.repo_path).as_posix()
+            arglist.extend(["--follow",p])
+            follow_files=True
+        logger.debug("Loading logs with args",extra={"git_args":arglist})
+        if follow_files:
+            return self._log(arglist,True)
+        else:
+            arglist.insert(0,"--no-commit-header")
+            return self._rev_list(arglist=arglist)
+        
+        
     
     def get_branches(self)->Generator[str,None,None]:
         for head in self.repo.branches:
@@ -141,15 +194,6 @@ class RepoMiner():
                 auth.commits_authored.append(line.strip())
             authors.add(auth)
         return authors
-        # authors:dict[str,Author]=dict()
-        # logger.debug(f"Searchin for authors in range {str(start_date)} - {str(end_date)}")
-        # for commit in self.lazy_load_commits(start_date=start_date,end_date=end_date):
-        #     for c in commit:
-        #         author=Author(c.author_email,c.author_name)
-        #         if c.author_email not in authors:
-        #             authors[c.author_email]=author
-        #         authors[c.author_email].commits_authored.append(c.commit_hash)
-        # return set(authors.values())
     
     def get_commit(self,commit_hash:Optional[str]=None,end_date:Optional[date]=None)->CommitInfo:
         if commit_hash and end_date:

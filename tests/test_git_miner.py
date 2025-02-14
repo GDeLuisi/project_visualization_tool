@@ -113,7 +113,7 @@ commits_args=[
     (True,None,None,None,None,None,None,None,None,"success"),
     (False,None,None,None,None,None,None,None,None,"success"),
     (True,10,None,None,None,None,None,None,None,"success"),
-    (False,None,Path.cwd().joinpath(*'project_visualization_tool/src/app/app.py'.split('/')),None,None,None,None,None,None,"success"),
+    (False,None,Path.cwd().joinpath(*'src/app/app.py'.split('/')),None,None,None,None,None,None,"success"),
     (True,None,None,"src/app/cli.py",None,None,None,None,None,"success"),
     (False,None,'project_visualization_tool/src/app/app.py',"src/app/cli.py",None,None,None,None,None,"success"),
     (True,None,None,"src/app/cli.py",None,None,None,None,None,"success"),
@@ -131,7 +131,7 @@ def test_get_lazy_commits(repo_miner,no_merges,max_count,filepath,relative_path,
     if expected=="success":
         commits=[]
         for commit_list in repo_miner.lazy_load_commits(no_merges,max_count,filepath,relative_path,start_date,end_date,start_commit,end_commit,author):
-            logger.debug("Lazy load",extra={"commits":commit_list})
+            # logger.debug("Lazy load",extra={"commits":commit_list})
             commits.extend(commit_list)
         logger.debug("Full extracted commits",extra={"commits":commits})
         logger.debug("Len extracted commits ",extra={"len":len(commits)})
