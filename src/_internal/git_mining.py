@@ -7,7 +7,7 @@ from time import strptime,mktime
 from typing import Optional,Generator,Union,Iterable,get_args
 from pathlib import Path
 from datetime import date
-from git import Git,Repo,Blob,Commit
+from git import Git,Repo,Blob,Commit,exc
 from io import BytesIO
 import re
 import os
@@ -168,9 +168,14 @@ class RepoMiner():
     def get_branches(self)->Generator[str,None,None]:
         for head in self.repo.branches:
             yield head.name
-    def checkout_branch(self,branch:str):
-        self.git_repo.switch(branch)
-    
+    def checkout_branch(self,branch:str)->bool:
+        try:
+            self.git_repo.switch(branch)
+            return True
+        except exc.GitError as e:
+            logger.critical(str(e))
+            return False
+        
     def get_authors(self)->set[Author]:
         pattern=re.compile(r'([\w\s]+) <([a-z0-9A-Z!#$%@.&*+\/=?^_{|}~-]+)> \(\d+\)')
         authors:set[Author]=set()
