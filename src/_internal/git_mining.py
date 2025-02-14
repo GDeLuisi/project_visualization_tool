@@ -85,9 +85,12 @@ class RepoMiner():
                                                     parent=log["parent"],
                                                     files=[])
                 commit_list.append(commit_info)
-            last_revision=commit_info.parent.strip()
+            last_revision=commit_info.parent.strip().split(" ")[0]
             yield commit_list
             previous=arglist.pop()
+            if "..." in previous:
+                start,pr_end=previous.split("...")
+                last_revision=f"{start}...{last_revision}"
             arglist.append(last_revision)
             finished = not last_revision or previous==last_revision
             
@@ -116,6 +119,7 @@ class RepoMiner():
                                                     files=[])
                 commit_list.append(commit_info)
             last_revision=commit_info.parent.strip()
+            last_revision=last_revision.split(" ")[0]
             yield commit_list
             if follow:
                 file=arglist.pop()
@@ -126,6 +130,9 @@ class RepoMiner():
                 finished = not last_revision
             else:
                 previous=arglist.pop()
+                if "..." in previous:
+                    start,pr_end=previous.split("...")
+                    last_revision=f"{start}...{last_revision}"
                 arglist.append(last_revision)
                 finished = not last_revision or previous==last_revision
         
@@ -134,7 +141,7 @@ class RepoMiner():
         arglist=[self.COMMIT_PRETTY_FORMAT]
         if max_count:
             arglist.insert(0,f"--max-count={max_count}")
-        if not no_merges:
+        if  no_merges:
             arglist.insert(0,"--no-merges")
         if author:
             arglist.insert(0,f"--author={author}")
