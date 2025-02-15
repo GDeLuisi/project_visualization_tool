@@ -16,9 +16,11 @@ commits=[CommitInfo(commit_hash='700308b91a49af60d815f820287f330421036800', abbr
 
 def test_make_commits_dataframe():
     pd=make_commit_dataframe(commits)
-    assert pd["hash"].count()==2
+    logger.debug(pd.columns)
+    assert pd["commit_hash"].count()==2
 def test_make_authors_dataframe():
     pd=make_author_dataframe(authors)
+    logger.debug(pd.columns)
     assert pd["email"].count()==3
     
 def test_dataframe_adapter():

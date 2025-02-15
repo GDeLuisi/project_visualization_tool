@@ -24,8 +24,9 @@ def make_commit_dataframe(commit_list:Iterable[CommitInfo])->pd.DataFrame:
         commit_dict['refs'].append(commit.refs)
         commit_dict["tree"].append(commit.tree)
     logger.debug(f"Dict to transform {commit_dict}")
-    return pd.DataFrame(commit_dict).set_index("commit_hash")
-
+    df= pd.DataFrame(commit_dict)
+    df.set_index("commit_hash",inplace=True,drop=False)
+    return df
 def make_author_dataframe(author_list:Iterable[Author])->pd.DataFrame:
     auth_dict=dict(name=[],email=[],commits_authored=[])
     for author in author_list:
@@ -33,4 +34,6 @@ def make_author_dataframe(author_list:Iterable[Author])->pd.DataFrame:
         auth_dict["email"].append(author.email)
         auth_dict["name"].append(author.name)
     logger.debug(f"Dict to transform {auth_dict}")
-    return pd.DataFrame(auth_dict).set_index("email")
+    df= pd.DataFrame(auth_dict)
+    df.set_index("email",inplace=True,drop=False)
+    return df
