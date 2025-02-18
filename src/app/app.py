@@ -10,8 +10,10 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 from src._internal import make_commit_dataframe,make_author_dataframe
+from src.utility.logs import setup_logging
 
 def start_app(repo_path:Union[str|Path]):
+    setup_logging()
     import diskcache
     cache = diskcache.Cache("./cache")
     background_callback_manager = DiskcacheManager(cache)
@@ -26,3 +28,4 @@ def start_app(repo_path:Union[str|Path]):
     ])
     # open("http://localhost:8050/")
     # serve(app.server,host="localhost",port=8050)
+    app.run(debug=True,dev_tools_hot_reload=True)
