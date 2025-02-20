@@ -11,18 +11,48 @@ name: Upload Python Package to TestPyPi
 on:
   release:
     types: [prereleased]
+  workflow_dispatch:
+    inputs:
+      release:
+        type: boolean
+        description: Release tag version
+        default: false
 
 permissions:
   contents: read
 
 jobs:
+  if_manually_run:
+    if:  github.event.inputs.release == true
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - name: Get tag
+      shell: bash
+      run: |
+        if tag=$(git describe --tags --abbrev=0 2>/dev/null);then
+          echo "Found tag $tag"
+          echo "TAG=$tag" >> $GITHUB_ENV
+        else
+          echo "No tag found, exiting"
+          exit 1
+        fi
+  if_released:
+    if: github.event.release.tag_name
+    runs-on: ubuntu-latest
+    steps:
+    - name: Get tag
+      shell: bash
+      run: |
+        tag=${{ github.event.release.tag_name }}
+        echo "Found tag $tag"
+        echo "TAG=$tag" >> $GITHUB_ENV
   release-build:
     strategy:
       fail-fast: false
       matrix:
-        os: ["ubuntu-latest","windows-latest","macos-latest"]
         p-version: ["3.10","3.11","3.12","3.13"]
-    runs-on: ${{matrix.os}}
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -31,7 +61,7 @@ jobs:
       - name: Build release distributions
         shell: bash
         run: |
-          sed -i 's/__VERSION__/${{ github.event.release.tag_name }}/g' pyproject.toml
+          sed -i 's/__VERSION__/$TAG/g' pyproject.toml
           # NOTE: put your own distribution build steps here.
           python -m pip install build
           python -m build
