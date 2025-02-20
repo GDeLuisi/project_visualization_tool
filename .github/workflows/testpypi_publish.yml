@@ -11,37 +11,85 @@ name: Upload Python Package to TestPyPi
 on:
   release:
     types: [prereleased]
+  workflow_dispatch:
+    inputs:
+      release:
+        type: boolean
+        description: Release tag version
+        default: true
 
 permissions:
   contents: read
 
 jobs:
+  retrieve_tag:
+    if:  ${{ inputs.release == true }}
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag_extraction.outputs.tag }}
+      release_tag: ${{ steps.tag_extraction2.outputs.tag_r }}
+    steps:
+    - uses: actions/checkout@v4
+    - name: Get tag
+      shell: bash
+      id: tag_extraction
+      run: |
+        git fetch --all --unshallow
+        if tag=$(git describe --tags --abbrev=0 2>/dev/null);then
+          echo "Found tag $tag"
+          echo "tag=$tag" >> $GITHUB_OUTPUT
+        else
+          echo "No tag found, exiting"
+          exit 1
+        fi
+    - name: Get release tag
+      id: tag_extraction2
+      if: ${{ github.event.release.tag_name != '' && inputs.release != true }}
+      shell: bash
+      run: |
+        tag=${{ github.event.release.tag_name }}
+        echo "Found tag $tag"
+        echo "tag_r=$tag" >> $GITHUB_OUTPUT
+
   release-build:
+    needs:
+      - retrieve_tag
     strategy:
       fail-fast: false
       matrix:
-        os: ["ubuntu-latest","windows-latest","macos-latest"]
         p-version: ["3.10","3.11","3.12","3.13"]
-    runs-on: ${{matrix.os}}
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.build.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{matrix.p-version}}
       - name: Build release distributions
+        id: build
         shell: bash
         run: |
-          sed -i 's/__VERSION__/${{ github.event.prerelease.tag_name }}/g' pyproject.toml
+          TAG=${{needs.retrieve_tag.outputs.tag}}
+          if [ ! $TAG ];then
+            TAG=${{needs.retrieve_tag.outputs.release_tag}}
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          sed -i "s/__VERSION__/$TAG/g" pyproject.toml
           # NOTE: put your own distribution build steps here.
           python -m pip install build
           python -m build
       - name: Upload distributions
         uses: actions/upload-artifact@v4
         with:
-          name: release-dists
+          name: release-dists_${{matrix.p-version}}
           path: dist/
   publish-to-testpypi:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        p-version: ["3.10","3.11","3.12","3.13"]
     needs:
       - release-build
     permissions:
@@ -51,17 +99,18 @@ jobs:
     # For more information, see: https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment#deployment-protection-rules
     environment:
       name: testpypi
+
       # OPTIONAL: uncomment and update to include your PyPI project URL in the deployment status:
       # url: https://pypi.org/p/YOURPROJECT
       #
       # ALTERNATIVE: if your GitHub Release name is the PyPI project version string
       # ALTERNATIVE: exactly, uncomment the following line instead:https://test.pypi.org/manage/projects/
-      url: https://test.pypi.org/project/project_visualization_tool_GDeLuisi/${{ github.event.prerelease.tag_name }}
+      url: https://test.pypi.org/project/project_visualization_tool_GDeLuisi/${{needs.release-build.outputs.tag}}_${{matrix.p-version}}
     steps:
       - name: Retrieve release distributions
         uses: actions/download-artifact@v4
         with:
-          name: release-dists
+          name: release-dists_${{matrix.p-version}}
           path: dist/
       - name: Publish release distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
