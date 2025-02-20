@@ -12,9 +12,6 @@ jobs:
     runs-on: ubuntu-latest
     env: 
           REF: ${{ github.base_ref }}
-          MINOR: ${{ contains(github.event.pull_request.labels.*.name, 'minor') }}
-          MAJOR: ${{ contains(github.event.pull_request.labels.*.name, 'major') }}
-          PATCH: ${{ contains(github.event.pull_request.labels.*.name, 'patch') }}
     steps:
     - uses: actions/checkout@v4
     - name: Build new tag
