@@ -83,9 +83,13 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: release-dists
-          path: dist/
+          path: dist_${{matrix.p-version}}/
   publish-to-testpypi:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        p-version: ["3.10","3.11","3.12","3.13"]
     needs:
       - release-build
     permissions:
@@ -101,13 +105,13 @@ jobs:
       #
       # ALTERNATIVE: if your GitHub Release name is the PyPI project version string
       # ALTERNATIVE: exactly, uncomment the following line instead:https://test.pypi.org/manage/projects/
-      url: https://test.pypi.org/project/project_visualization_tool_GDeLuisi/${{needs.release-build.outputs.tag}}
+      url: https://test.pypi.org/project/project_visualization_tool_GDeLuisi/${{needs.release-build.outputs.tag_${{matrix.p-version}}}}
     steps:
       - name: Retrieve release distributions
         uses: actions/download-artifact@v4
         with:
           name: release-dists
-          path: dist/
+          path: dist_${{matrix.p-version}}/
       - name: Publish release distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
