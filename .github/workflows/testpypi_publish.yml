@@ -22,7 +22,7 @@ permissions:
   contents: read
 
 jobs:
-  if_manually_run:
+  retrieve_tag:
     if:  ${{ inputs.release == true }}
     runs-on: ubuntu-latest
     steps:
@@ -38,20 +38,17 @@ jobs:
           echo "No tag found, exiting"
           exit 1
         fi
-  if_released:
-    if: ${{ github.event.release.tag_name != '' && inputs.release != true }}
-    runs-on: ubuntu-latest
-    steps:
-    - name: Get tag
+    - name: Get release tag
+      if: ${{ github.event.release.tag_name != '' && inputs.release != true }}
       shell: bash
       run: |
         tag=${{ github.event.release.tag_name }}
         echo "Found tag $tag"
         echo "TAG=$tag" >> $GITHUB_ENV
+
   release-build:
     needs:
-      - if_manually_run
-      - if_released
+      - retrieve_tag
     strategy:
       fail-fast: false
       matrix:
