@@ -14,7 +14,7 @@ jobs:
           REF: ${{ github.base_ref }}
     steps:
     - uses: actions/checkout@v4
-    - name: Build new tag
+    - name: Get old tag
       shell: bash
       run: |
         if tag=$(git describe --tags --abbrev=0 2>/dev/null);then
@@ -25,13 +25,6 @@ jobs:
           echo "MAJOR=$major" >> $GITHUB_ENV
           echo "MINOR=$minor" >> $GITHUB_ENV
           echo "PATCH=$patch" >> $GITHUB_ENV
-          if [ -n "${{ github.event.pull_request.labels.find(x => x.name == 'major') }}" ];then
-            major=$((major+1))
-          elif [ -n "${{ github.event.pull_request.labels.find(x => x.name == 'minor') }}" ];then
-            minor=$((minor+1))
-          else
-            patch=$((patch+1))
-          fi
         else
           echo "MAJOR=0" >> $GITHUB_ENV
           echo "MINOR=0" >> $GITHUB_ENV
