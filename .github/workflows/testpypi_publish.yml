@@ -23,7 +23,7 @@ permissions:
 
 jobs:
   if_manually_run:
-    if:  github.event.inputs.release == true
+    if:  ${{ inputs.release == true }}
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -38,7 +38,7 @@ jobs:
           exit 1
         fi
   if_released:
-    if: github.event.release.tag_name
+    if: ${{ github.event.release.tag_name != '' && inputs.release != true }}
     runs-on: ubuntu-latest
     steps:
     - name: Get tag
