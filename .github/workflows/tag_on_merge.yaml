@@ -1,0 +1,40 @@
+name: Tag on merge on master
+
+on:
+  pull_request:
+    types:
+      - closed
+
+jobs:
+  
+  if_merged:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    env: 
+          REF: ${{ github.base_ref }}
+    steps:
+    - uses: actions/checkout@v4
+    - name: Build new tag
+      shell: bash
+      run: |
+        if tag=$(git describe --tags --abbrev=0 2>/dev/null);then
+          major=$(echo $tag | cut -d '.' -f 1)
+          minor=$(echo $tag | cut -d '.' -f 2)
+          patch=$(echo $tag | cut -d '.' -f 3)
+          if [ -n "${{ github.event.pull_request.labels.find(x => x.name == 'major') }}" ];then
+            major=$((major+1))
+          elif [ -n "${{ github.event.pull_request.labels.find(x => x.name == 'minor') }}" ];then
+            minor=$((minor+1))
+          else
+            patch=$((patch+1))
+          fi
+          echo "TAG=$major.$minor.$patch" >> $GITHUB_ENV
+        else
+          echo "TAG=0.0.1" >> $GITHUB_ENV
+        fi
+    - name: Create new tag
+      uses: anothrNick/github-tag-action@v1.12.2
+      with:
+        tag: $TAG
+        message: 'New version $TAG'
+      
