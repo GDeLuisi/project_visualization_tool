@@ -7,7 +7,7 @@ from sys import version_info
 import subprocess
 import logging
 
-def main(args:Optional[Sequence[str]]=None):
+def main(args:Optional[Sequence[str]]=None,cicd_test:bool=False):
     
     if version_info.minor<10:
         logging.exception(f"System Python version {version_info.major}.{version_info.minor} < Python3.10.x . It is mandatory to at least use Python versions > 3.10.x for a correct usage of the application")
@@ -39,5 +39,5 @@ def main(args:Optional[Sequence[str]]=None):
     except subprocess.CalledProcessError:
         error("Git repo is corrupted, check for your git config files")
         exit(3)
-    start_app(dir)
+    start_app(dir,cicd_test)
     # find_setd()

@@ -12,7 +12,7 @@ import plotly.express as px
 from src._internal import make_commit_dataframe,make_author_dataframe
 from src.utility.logs import setup_logging
 import dash_bootstrap_components as dbc
-def start_app(repo_path:Union[str|Path]):
+def start_app(repo_path:Union[str|Path],cicd_test:bool):
     setup_logging()
     path=repo_path if isinstance(repo_path,str) else repo_path.as_posix()
     print(path)
@@ -23,6 +23,7 @@ def start_app(repo_path:Union[str|Path]):
         dcc.Store("repo_path",data=path),
         page_container
     ])
-    open("http://localhost:8050/")
-    serve(app.server,host="localhost",port=8050)
+    if not cicd_test:
+        open("http://localhost:8050/")
+        serve(app.server,host="localhost",port=8050)
     # app.run(debug=True,dev_tools_hot_reload=True)

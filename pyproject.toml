@@ -7,7 +7,7 @@ path = "main.py"
 packages = ["src"]
 [project]
 name = "project_visualization_tool_GDeLuisi"
-version = __VERSION__
+version = "__VERSION__"
 authors = [
 { name="De Luisi Gerardo", email="deluisigerardo@gmail.com" },
 ]

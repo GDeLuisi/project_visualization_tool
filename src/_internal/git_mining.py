@@ -178,17 +178,14 @@ class RepoMiner():
             arglist.extend(["--follow",p])
             follow_files=True
         logger.debug("Loading logs with args",extra={"git_args":arglist})
-        with Lock():
-            return self._log(arglist,follow_files)
+        return self._log(arglist,follow_files)
     
     def get_branches(self,deep:bool=True)->Generator[Branch,None,None]:
             if deep:
-                with self.repo_lock:
                     for head in self.repo.branches:
                         b = self.get_branch(head.name)
                         yield b
             else:
-                with self.repo_lock:
                     for head in self.repo.branches:
                         yield Branch(name=head.name,commits=[])
         
@@ -196,15 +193,6 @@ class RepoMiner():
         commits=next(self.lazy_load_commits(end_commit=branch))
         return Branch(commits=commits,name=branch)
     
-    def checkout_branch(self,branch:str)->bool:
-        try:
-            with self.repo_lock:
-                self.git_repo.switch(branch)
-            return True
-        except exc.GitError as e:
-            logger.critical(str(e))
-            return False
-        
     def get_authors(self)->set[Author]:
         pattern=re.compile(r'([\w\s]+) <([a-z0-9A-Z!#$%@.&*+\/=?^_{|}~-]+)> \(\d+\)')
         authors:set[Author]=set()
@@ -260,7 +248,8 @@ class RepoMiner():
         return self.lazy_load_commits(author=val)
     def get_tracked_files(self)->list[str]:
         with self.repo_lock:
-            text=re.split(string=self.git_repo.ls_files(),pattern=r'\r\n|\n|\r')
+            files=re.split(string=self.git_repo.ls_files(),pattern=r'\r\n|\n|\r')
+        return files
     #TODO include option to use multiple filenames
     def get_source_code(self,file:Union[str,Path],commit:Optional[str]=None)->list[str]:
         text=[]
