@@ -82,8 +82,8 @@ jobs:
       - name: Upload distributions
         uses: actions/upload-artifact@v4
         with:
-          name: release-dists
-          path: dist_${{matrix.p-version}}/
+          name: release-dists_${{matrix.p-version}}
+          path: dist/
   publish-to-testpypi:
     runs-on: ubuntu-latest
     strategy:
@@ -110,8 +110,8 @@ jobs:
       - name: Retrieve release distributions
         uses: actions/download-artifact@v4
         with:
-          name: release-dists
-          path: dist_${{matrix.p-version}}/
+          name: release-dists__${{matrix.p-version}}
+          path: dist/
       - name: Publish release distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
