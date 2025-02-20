@@ -16,7 +16,7 @@ on:
       release:
         type: boolean
         description: Release tag version
-        default: false
+        default: true
 
 permissions:
   contents: read
@@ -61,7 +61,7 @@ jobs:
       - name: Build release distributions
         shell: bash
         run: |
-          sed -i 's/__VERSION__/$TAG/g' pyproject.toml
+          sed -i "s/__VERSION__/$TAG/g" pyproject.toml
           # NOTE: put your own distribution build steps here.
           python -m pip install build
           python -m build
