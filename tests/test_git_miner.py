@@ -64,7 +64,10 @@ def test_get_author_commits(repo_miner,name_email,expected):
 @mark.parametrize("commit,expected",[("f188112d478439ab10b6d5dad88cf14c46a0efa44",[]),(None,[".github/workflows/test-dev.yml",".github/workflows/testpypi_publish.yml",".gitignore","LICENSE","RAD.docx","README.md","main.py","pyproject.toml","requirements.txt","src/_internal/__init__.py","src/_internal/data_preprocessing.py","src/_internal/data_typing.py","src/_internal/file_parser.py","src/_internal/git_mining.py","src/_internal/info/ext.json","src/app/__init__.py","src/app/app.py","src/app/cli.py","src/gui/__init__.py","src/gui/components.py","src/gui/pages/homepage.py","src/utility/__init__.py","src/utility/logging_configs/logs_config_file.json","src/utility/logging_configs/logs_config_file_old.json","src/utility/logs.py","tests/test_cli.py","tests/test_data_preprocessing.py","tests/test_dummy.py","tests/test_file_parser.py","tests/test_git_miner.py"]),("f188112d478439ab9b6d5dad88cf14c46a0efa44",[".github/workflows/python-app-dev.yml",".github/workflows/python-app.yml",".gitignore","LICENSE","README.md","main.py","pyproject.toml","src/_internal/__init__.py","src/_internal/file_parser.py","src/app.py","tests/report.txt","tests/test_dummy.py","tests/test_file_parser.py"])])
 def test_get_commit_files(repo_miner,commit,expected):
     if expected:
-        assert repo_miner.get_commit_files(commit) == expected
+        if commit:
+            assert repo_miner.get_commit_files(commit) == expected
+        else:
+            assert set(repo_miner.get_commit_files(commit))==set(repo_miner.get_tracked_files())
     else:
         with raises(Exception) as e:
             logger.critical(e.exconly())
