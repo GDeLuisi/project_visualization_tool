@@ -48,6 +48,9 @@ jobs:
         echo "Found tag $tag"
         echo "TAG=$tag" >> $GITHUB_ENV
   release-build:
+    needs:
+      - if_manually_run
+      - if_released
     strategy:
       fail-fast: false
       matrix:
