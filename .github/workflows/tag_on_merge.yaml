@@ -49,8 +49,9 @@ jobs:
         patch=$((PATCH+1))
         echo "TAG=$MAJOR.$MINOR.$patch" >> $GITHUB_ENV
     - name: Create new tag
-      uses: anothrNick/github-tag-action@v1.12.2
-      with:
-        tag: $TAG
-        message: 'New version $TAG'
+      shell: bash
+      run: |
+        echo "Creating new tag $TAG"
+        git tag $TAG
+        git push origin $TAG
       
