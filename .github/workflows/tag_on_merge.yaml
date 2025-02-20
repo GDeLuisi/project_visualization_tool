@@ -1,4 +1,4 @@
-name: Tag on merge on master
+name: Tag on merge
 
 on:
   pull_request:
@@ -16,6 +16,7 @@ jobs:
     - name: Get old tag
       shell: bash
       run: |
+        git fetch --all --unshallow
         if tag=$(git describe --tags --abbrev=0 2>/dev/null);then
           echo "Found tag $tag"
           major=$(echo $tag | cut -d '.' -f 1)
@@ -50,6 +51,9 @@ jobs:
     - name: Create new tag
       shell: bash
       run: |
+        if [ ! $TAG ];then
+          echo "No tagging required"
+          exit 0
         echo "Creating new tag $TAG"
         git tag $TAG
         git push origin $TAG
