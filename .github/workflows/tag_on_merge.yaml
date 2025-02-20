@@ -14,27 +14,44 @@ jobs:
           REF: ${{ github.base_ref }}
     steps:
     - uses: actions/checkout@v4
-    - name: Build new tag
+    - name: Get old tag
       shell: bash
       run: |
         if tag=$(git describe --tags --abbrev=0 2>/dev/null);then
+          echo "Found tag $tag"
           major=$(echo $tag | cut -d '.' -f 1)
           minor=$(echo $tag | cut -d '.' -f 2)
           patch=$(echo $tag | cut -d '.' -f 3)
-          if [ -n "${{ github.event.pull_request.labels.find(x => x.name == 'major') }}" ];then
-            major=$((major+1))
-          elif [ -n "${{ github.event.pull_request.labels.find(x => x.name == 'minor') }}" ];then
-            minor=$((minor+1))
-          else
-            patch=$((patch+1))
-          fi
-          echo "TAG=$major.$minor.$patch" >> $GITHUB_ENV
+          echo "MAJOR=$major" >> $GITHUB_ENV
+          echo "MINOR=$minor" >> $GITHUB_ENV
+          echo "PATCH=$patch" >> $GITHUB_ENV
         else
-          echo "TAG=0.0.1" >> $GITHUB_ENV
+          echo "MAJOR=0" >> $GITHUB_ENV
+          echo "MINOR=0" >> $GITHUB_ENV
+          echo "PATCH=0" >> $GITHUB_ENV
         fi
+    - if: contains(github.event.pull_request.labels.*.name, 'major')
+      name: "Increment Major"
+      shell:  bash
+      run: |
+        major=$((MAJOR+1))
+        echo "TAG=$major.$MINOR.$PATCH" >> $GITHUB_ENV
+    - if: contains(github.event.pull_request.labels.*.name, 'minor')
+      name: "Increment Minor"
+      shell:  bash
+      run: |
+        minor=$((MINOR+1))
+        echo "TAG=$MAJOR.$minor.$PATCH" >> $GITHUB_ENV
+    - if: contains(github.event.pull_request.labels.*.name, 'patch')
+      name: "Increment Patch"
+      shell:  bash
+      run: |
+        patch=$((PATCH+1))
+        echo "TAG=$MAJOR.$MINOR.$patch" >> $GITHUB_ENV
     - name: Create new tag
-      uses: anothrNick/github-tag-action@v1.12.2
-      with:
-        tag: $TAG
-        message: 'New version $TAG'
+      shell: bash
+      run: |
+        echo "Creating new tag $TAG"
+        git tag $TAG
+        git push origin $TAG
       
