@@ -163,7 +163,7 @@ truck_factor_testcases=[((Path("src/app/app.py"),"tests/report.txt","tests/test_
                         ((),(),(date.fromisoformat("2025-02-01"),date.fromisoformat("2025-02-12"))),((),(),(date.fromisoformat("2025-02-01"),None)),
                         ((),(),(None,date.fromisoformat("2025-02-12"))),((),(),())]
 
-@mark.parametrize("paths,suffixes,date_range",)
+@mark.parametrize("paths,suffixes,date_range",truck_factor_testcases)
 def test_calculate_truck_factor(repo_miner,paths,suffixes,date_range):
     tf=repo_miner.get_truck_factor(paths,suffixes_of_interest=suffixes,date_range=date_range)
     # logger.debug(list(map(lambda k: (k[0],len(k[1])),tf[1].items())))
