@@ -14,18 +14,15 @@ from src.utility.logs import setup_logging
 import dash_bootstrap_components as dbc
 def start_app(repo_path:Union[str|Path]):
     setup_logging()
-    import diskcache
-    cache = diskcache.Cache("./cache")
-    background_callback_manager = DiskcacheManager(cache)
     path=repo_path if isinstance(repo_path,str) else repo_path.as_posix()
     print(path)
-    app=Dash(name="Project Visualization Tool",title="PVT",external_stylesheets=[dbc.themes.BOOTSTRAP],background_callback_manager=background_callback_manager,use_pages=True,pages_folder=Path(__file__).parent.parent.joinpath("gui","pages").as_posix())
+    app=Dash(name="Project Visualization Tool",title="PVT",external_stylesheets=[dbc.themes.BOOTSTRAP],use_pages=True,pages_folder=Path(__file__).parent.parent.joinpath("gui","pages").as_posix())
     app.layout = html.Div([
         dcc.Store(id="commit_df"),
         dcc.Store(id="author_df"),
         dcc.Store("repo_path",data=path),
         page_container
     ])
-    # open("http://localhost:8050/")
-    # serve(app.server,host="localhost",port=8050)
-    app.run(debug=True,dev_tools_hot_reload=True)
+    open("http://localhost:8050/")
+    serve(app.server,host="localhost",port=8050)
+    # app.run(debug=True,dev_tools_hot_reload=True)
