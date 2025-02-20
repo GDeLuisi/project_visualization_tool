@@ -25,26 +25,30 @@ jobs:
   retrieve_tag:
     if:  ${{ inputs.release == true }}
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.step1.tag_extraction.tag }}
     steps:
     - uses: actions/checkout@v4
     - name: Get tag
       shell: bash
+      id: tag_extraction
       run: |
         git fetch --all --unshallow
         if tag=$(git describe --tags --abbrev=0 2>/dev/null);then
           echo "Found tag $tag"
-          echo "TAG=$tag" >> $GITHUB_OUTPUT
+          echo "tag=$tag" >> $GITHUB_OUTPUT
         else
           echo "No tag found, exiting"
           exit 1
         fi
     - name: Get release tag
+      id: tag_extraction
       if: ${{ github.event.release.tag_name != '' && inputs.release != true }}
       shell: bash
       run: |
         tag=${{ github.event.release.tag_name }}
         echo "Found tag $tag"
-        echo "$tag" >> $GITHUB_OUTPUT
+        echo "tag=$tag" >> $GITHUB_OUTPUT
 
   release-build:
     needs:
@@ -62,7 +66,7 @@ jobs:
       - name: Build release distributions
         shell: bash
         run: |
-          TAG=${{needs.retrieve_tag.outputs.output1}}
+          TAG=${{needs.retrieve_tag.outputs.tag}}
           sed -i "s/__VERSION__/$TAG/g" pyproject.toml
           # NOTE: put your own distribution build steps here.
           python -m pip install build
@@ -89,7 +93,7 @@ jobs:
       #
       # ALTERNATIVE: if your GitHub Release name is the PyPI project version string
       # ALTERNATIVE: exactly, uncomment the following line instead:https://test.pypi.org/manage/projects/
-      url: https://test.pypi.org/project/project_visualization_tool_GDeLuisi/${{needs.retrieve_tag.outputs.output1}}
+      url: https://test.pypi.org/project/project_visualization_tool_GDeLuisi/${{needs.retrieve_tag.outputs.tag}}
     steps:
       - name: Retrieve release distributions
         uses: actions/download-artifact@v4
