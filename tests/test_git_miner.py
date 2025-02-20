@@ -26,7 +26,7 @@ def test_get_all_authors(repo_miner):
         if not found:
             assert False
     assert True
-    
+
 def test_get_branches(repo_miner):
     assert set(repo_miner.get_branches())=={"main","development"}
 
@@ -72,6 +72,10 @@ def test_get_commit_files(repo_miner,commit,expected):
         with raises(Exception) as e:
             logger.critical(e.exconly())
             repo_miner.get_commit_files(commit)
+
+def test_get_tracked_files(repo_miner):
+    assert repo_miner.get_commit_files()==repo_miner.get_tracked_files()
+            
 @mark.parametrize("files",[("src/app.py","tests/report.txt","tests/test_dummy.py","tests/test_file_parser.py"),(".github/workflows/test-dev.yml",".github/workflows/testpypi_publish.yml",".gitignore","LICENSE","RAD.docx","README.md","main.py","pyproject.toml","requirements.txt","src/_internal/__init__.py","src/_internal/data_preprocessing.py","src/_internal/data_typing.py","src/_internal/file_parser.py","src/_internal/git_mining.py","src/_internal/info/ext.json","src/app/__init__.py","src/app/app.py","src/app/cli.py","src/gui/__init__.py","src/gui/components.py","src/gui/pages/homepage.py","src/utility/__init__.py","src/utility/logging_configs/logs_config_file.json","src/utility/logging_configs/logs_config_file_old.json","src/utility/logs.py","tests/test_cli.py","tests/test_data_preprocessing.py","tests/test_dummy.py","tests/test_file_parser.py","tests/test_git_miner.py")])
 def test_infer_programming_language(repo_miner,files):
     assert repo_miner.infer_programming_language(files)==[".py"]
@@ -110,6 +114,7 @@ def test_get_bug_resolving_commit():
 #date.fromisoformat("2025-02-10") date.fromisoformat("2025-02-12")
 #TODO make it more comprehensive of equivalence classes on extreme values
 commits_args=[
+    (True,None,None,None,None,None,None,None,None,"success"),
     (True,None,None,None,None,None,None,None,None,"success"),
     (False,None,None,None,None,None,None,None,None,"success"),
     (True,10,None,None,None,None,None,None,None,"success"),

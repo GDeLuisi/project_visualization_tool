@@ -2,7 +2,7 @@ import pydriller as git
 import pydriller.metrics.process.contributors_count as contr
 import pydriller.metrics.process.history_complexity as history
 import pydriller.metrics.process.commits_count as comcnt
-from .data_typing import Author,CommitInfo,check_extension
+from .data_typing import Author,CommitInfo,check_extension,Branch
 from time import strptime,mktime
 from typing import Optional,Generator,Union,Iterable,get_args
 from pathlib import Path
@@ -25,6 +25,7 @@ class RepoMiner():
         self.repo_path=repo_path
         if isinstance(repo_path,Path):
             self.repo_path=repo_path.as_posix()
+        self.repo_lock=Lock()
         self.repo=Repo(self.repo_path)
         self.git_repo=self.repo.git
         # self.update()
@@ -49,128 +50,156 @@ class RepoMiner():
                 arglist.append(end_string)
             return arglist
                 
-    def _load_commits_commit_range(self,start_commit:Optional[str]=None,end_commit:Optional[str]=None)->str:
+    def _load_commits_commit_range(self,start_commit:Optional[str]=None,end_commit:Optional[str]=None,deafult:Optional[str]="HEAD")->str:
         # start,end = start_date,end_date if start_date>end_date else end_date,start_date
+        if not deafult:
+            deafult=""
         commit_range=""
         commit_range=commit_range+start_commit if start_commit else ""
         if end_commit:
-            commit_range=commit_range+"..."+end_commit 
+            commit_range=commit_range+"..."+end_commit if commit_range else end_commit
         elif not start_commit:
-            commit_range="HEAD"
+            commit_range=deafult
         else:
-            commit_range=commit_range+"...HEAD"
+            commit_range=commit_range+f"...{deafult}"
         return commit_range
     
-    def _rev_list(self,arglist:list[str])->Generator[list[CommitInfo],None,None]:
-        finished=False
-        while not finished:
-            logs=re.split(string=self.git_repo.rev_list(arglist),pattern=r'\r\n|\n|\r')
-            logger.debug("Loaded commits",extra={"commits":logs})
-            if not logs[0] or not logs:
-                logger.debug("Finished Loading")
-                finished=True
-                return []
-            logs=[json.loads(log) for log in logs]
-            commit_list:list[CommitInfo]=[]
-            for log in logs:
-                commit_info=CommitInfo(
-                                                    author_email=log["author"]["email"],
-                                                    author_name=log["author"]["name"],
-                                                    commit_hash=log["commit"],
-                                                    abbr_hash=log["abbreviated_commit"],
-                                                    tree=log["tree"],
-                                                    refs=log["refs"],
-                                                    subject=log["subject"],
-                                                    date=date.fromtimestamp(mktime(strptime(log["author"]["date"],"%a, %d %b %Y %H:%M:%S %z"))),
-                                                    parent=log["parent"],
-                                                    files=[])
-                commit_list.append(commit_info)
-            last_revision=commit_info.parent.strip().split(" ")[0]
-            yield commit_list
-            previous=arglist.pop()
-            if "..." in previous:
-                start,pr_end=previous.split("...")
-                last_revision=f"{start}...{last_revision}"
-            arglist.append(last_revision)
-            finished = not last_revision or previous==last_revision
+    # def _rev_list(self,arglist:list[str])->Generator[list[CommitInfo],None,None]:
+    #     finished=False
+    #     while not finished:
+    #         logs=re.split(string=self.git_repo.rev_list(arglist),pattern=r'\r\n|\n|\r')
+    #         logger.debug("Loaded commits",extra={"commits":logs})
+    #         if not logs[0] or not logs:
+    #             logger.debug("Finished Loading")
+    #             finished=True
+    #             return []
+    #         logs=[json.loads(log) for log in logs]
+    #         commit_list:list[CommitInfo]=[]
+    #         last_revision=logs[0]["commit"].split(" ")[0]
+    #         for log in logs:
+    #             commit_info=CommitInfo(
+    #                                                 author_email=log["author"]["email"],
+    #                                                 author_name=log["author"]["name"],
+    #                                                 commit_hash=log["commit"],
+    #                                                 abbr_hash=log["abbreviated_commit"],
+    #                                                 tree=log["tree"],
+    #                                                 refs=log["refs"],
+    #                                                 subject=log["subject"],
+    #                                                 date=date.fromtimestamp(mktime(strptime(log["author"]["date"],"%a, %d %b %Y %H:%M:%S %z"))),
+    #                                                 parent=log["parent"],
+    #                                                 files=[])
+    #             commit_list.append(commit_info)
+    #         next_revision=commit_info.parent.strip().split(" ")[0]
+    #         yield commit_list
+    #         for i,arg in enumerate(arglist):
+    #             if "..." in arg:
+    #                 start,pr_end=arg.split("...")
+    #                 next_revision=f"{start}...{next_revision}"
+    #                 arglist.pop(i)
+    #                 arglist.insert(i,next_revision)
+    #             elif last_revision == arg:
+    #                 arglist.pop(i)
+    #                 arglist.insert(i,next_revision)
+    #         finished = not last_revision or next_revision==last_revision
             
     def _log(self,arglist:list[str],follow:bool=False)->Generator[list[CommitInfo],None,None]:
         finished=False
         while not finished:
-            logs=re.split(string=self.git_repo.log(arglist),pattern=r'\r\n|\n|\r')
-            logger.debug("Loaded commits",extra={"commits":logs})
+            with self.repo_lock:
+                logs=re.split(string=self.git_repo.log(arglist),pattern=r'\r\n|\n|\r')
+            # logger.debug("Loaded commits",extra={"commits":logs})
             if not logs[0] or not logs:
                 logger.debug("Finished Loading")
                 finished=True
                 return []
-            logs=[json.loads(log) for log in logs]
-            commit_list:list[CommitInfo]=[]
-            for log in logs:
-                commit_info=CommitInfo(
-                                                    author_email=log["author"]["email"],
-                                                    author_name=log["author"]["name"],
-                                                    commit_hash=log["commit"],
-                                                    abbr_hash=log["abbreviated_commit"],
-                                                    tree=log["tree"],
-                                                    refs=log["refs"],
-                                                    subject=log["subject"],
-                                                    date=date.fromtimestamp(mktime(strptime(log["author"]["date"],"%a, %d %b %Y %H:%M:%S %z"))),
-                                                    parent=log["parent"],
-                                                    files=[])
-                commit_list.append(commit_info)
-            last_revision=commit_info.parent.strip()
-            last_revision=last_revision.split(" ")[0]
-            yield commit_list
-            if follow:
-                file=arglist.pop()
-                flag=arglist.pop()
-                arglist.append(last_revision)
-                arglist.append(flag)
-                arglist.append(file)
-                finished = not last_revision
-            else:
-                previous=arglist.pop()
-                if "..." in previous:
-                    start,pr_end=previous.split("...")
-                    last_revision=f"{start}...{last_revision}"
-                arglist.append(last_revision)
-                finished = not last_revision or previous==last_revision
-        
+            try:
+                logs=[json.loads(log) for log in logs]
+                
+                last_revision=logs[0]["commit"].split(" ")[0]
+                commit_list:list[CommitInfo]=[]
+                for log in logs:
+                    commit_info=CommitInfo(
+                                                        author_email=log["author"]["email"],
+                                                        author_name=log["author"]["name"],
+                                                        commit_hash=log["commit"],
+                                                        abbr_hash=log["abbreviated_commit"],
+                                                        tree=log["tree"],
+                                                        refs=log["refs"],
+                                                        subject=log["subject"],
+                                                        date=date.fromtimestamp(mktime(strptime(log["author"]["date"],"%a, %d %b %Y %H:%M:%S %z"))),
+                                                        parent=log["parent"],
+                                                        files=[])
+                    commit_list.append(commit_info)
+                next_revision=commit_info.parent.strip().split(" ")[0]
+                yield commit_list
+                if follow:
+                    file=arglist.pop()
+                    flag=arglist.pop()
+                    rev=arglist.pop(0)
+                    arglist.insert(0,next_revision)
+                    arglist.append(flag)
+                    arglist.append(file)
+                else:
+                    rev=arglist.pop(0)
+                    if "..." in rev:
+                        start,pr_end=rev.split("...")
+                        next_revision=f"{next_revision}...{pr_end}"
+                    if "--" in rev:
+                        arglist.insert(0,rev)
+                    arglist.insert(0,next_revision)
+                    
+                logger.debug(f"Reloaded arglist {arglist}")
+                finished = not next_revision or next_revision==last_revision or next_revision==rev
+            except json.JSONDecodeError as e:
+                logger.critical(str(e))
+                logger.critical(f"Faulty object {repr(logs)}")
+                exit(1)
+    
     def lazy_load_commits(self,no_merges:bool=True, max_count:int=None,filepath:Optional[Union[str,Path]]=None,relative_path:Optional[Union[str,Path]]=None,start_date:Optional[date]=None,end_date:Optional[date]=None,start_commit:Optional[str]=None,end_commit:Optional[str]=None,author:Optional[str]=None)->Generator[list[CommitInfo],None,None]:
         follow_files=False
-        arglist=[self.COMMIT_PRETTY_FORMAT]
+        arglist=[]
+        cr=self._load_commits_commit_range(start_commit,end_commit,deafult="")
+        if cr:
+            arglist.append(cr)
+        arglist.append(self.COMMIT_PRETTY_FORMAT)
         if max_count:
-            arglist.insert(0,f"--max-count={max_count}")
+            arglist.append(f"--max-count={max_count}")
         if  no_merges:
-            arglist.insert(0,"--no-merges")
+            arglist.append("--no-merges")
         if author:
-            arglist.insert(0,f"--author={author}")
+            arglist.append(f"--author={author}")
         arglist.extend(self._load_commits_date_range(start_date,end_date))
-        if not filepath and not relative_path:
-            arglist.append(self._load_commits_commit_range(start_commit,end_commit))
-        elif relative_path:
+        if relative_path:
             p=Path(relative_path).as_posix() if isinstance(relative_path,str) else relative_path.as_posix()
             arglist.extend(["--follow",p])
             follow_files=True
-        else:
+        elif filepath:
             p=Path(filepath).relative_to(self.repo_path).as_posix() if isinstance(filepath,str) else filepath.relative_to(self.repo_path).as_posix()
             arglist.extend(["--follow",p])
             follow_files=True
         logger.debug("Loading logs with args",extra={"git_args":arglist})
-        if follow_files:
-            return self._log(arglist,True)
-        else:
-            arglist.insert(0,"--no-commit-header")
-            return self._rev_list(arglist=arglist)
-        
-        
+        with Lock():
+            return self._log(arglist,follow_files)
     
-    def get_branches(self)->Generator[str,None,None]:
-        for head in self.repo.branches:
-            yield head.name
+    def get_branches(self,deep:bool=True)->Generator[Branch,None,None]:
+            if deep:
+                with self.repo_lock:
+                    for head in self.repo.branches:
+                        b = self.get_branch(head.name)
+                        yield b
+            else:
+                with self.repo_lock:
+                    for head in self.repo.branches:
+                        yield Branch(name=head.name,commits=[])
+        
+    def get_branch(self,branch:str)->Branch:
+        commits=next(self.lazy_load_commits(end_commit=branch))
+        return Branch(commits=commits,name=branch)
+    
     def checkout_branch(self,branch:str)->bool:
         try:
-            self.git_repo.switch(branch)
+            with self.repo_lock:
+                self.git_repo.switch(branch)
             return True
         except exc.GitError as e:
             logger.critical(str(e))
@@ -179,7 +208,8 @@ class RepoMiner():
     def get_authors(self)->set[Author]:
         pattern=re.compile(r'([\w\s]+) <([a-z0-9A-Z!#$%@.&*+\/=?^_{|}~-]+)> \(\d+\)')
         authors:set[Author]=set()
-        per_author:list[str]=self.git_repo.shortlog("-e","--format=%H","HEAD").strip('\n').split('\n\n')
+        with self.repo_lock:
+            per_author:list[str]=self.git_repo.shortlog("-e","--format=%H","HEAD").strip('\n').split('\n\n')
         for a_str in per_author:
             line_list=a_str.split('\n')
             l=line_list.pop(0).strip()
@@ -195,7 +225,8 @@ class RepoMiner():
         pattern=re.compile(r'([\w\s]+) <([a-z0-9A-Z!#$%@.&*+\/=?^_{|}~-]+)> \(\d+\)')
         authors:set[Author]=set()
         arglist=self._load_commits_date_range(start_date,end_date)
-        per_author:list[str]=self.git_repo.shortlog(*arglist,"-e","--format=%H","HEAD").strip('\n').split('\n\n')
+        with self.repo_lock:
+            per_author:list[str]=self.git_repo.shortlog(*arglist,"-e","--format=%H","HEAD").strip('\n').split('\n\n')
         for a_str in per_author:
             line_list=a_str.split('\n')
             l=line_list.pop(0).strip()
@@ -216,7 +247,9 @@ class RepoMiner():
         return commit
 
     def get_last_modified(self,commit:str)->Generator[tuple[str,set[str]],None,None]:
-        git_repo=git.Git(self.repo_path)
+        with self.repo_lock:
+            git_repo=git.Git(self.repo_path)
+            
         for k,v in git_repo.get_commits_last_modified_lines(git_repo.get_commit(commit)).items():
             yield (k,v)
             
@@ -225,14 +258,17 @@ class RepoMiner():
             raise ValueError("Only one between name and email are required")
         val=name if name else email
         return self.lazy_load_commits(author=val)
-    
+    def get_tracked_files(self)->list[str]:
+        with self.repo_lock:
+            text=re.split(string=self.git_repo.ls_files(),pattern=r'\r\n|\n|\r')
     #TODO include option to use multiple filenames
     def get_source_code(self,file:Union[str,Path],commit:Optional[str]=None)->list[str]:
         text=[]
         file_path=file
         if isinstance(file,str):
             file_path=Path(file)
-        target_commit=self.repo.commit(commit)
+        with self.repo_lock:
+            target_commit=self.repo.commit(commit)
         tree=target_commit.tree
         try:
             relative_path=file_path.relative_to(self.repo_path)
@@ -250,7 +286,8 @@ class RepoMiner():
     
     def get_commit_files(self,commit:Optional[str]=None)->list[str]:
         cm=commit if commit else "HEAD"
-        return self.git_repo.ls_tree("-r","--name-only",cm).split("\n")
+        with self.repo_lock:
+            return self.git_repo.ls_tree("-r","--name-only",cm).split("\n")
     
     def _calculate_DL(self,input_tuple:tuple[Author,list[CommitInfo]])->int:
         author,commit_list=input_tuple
@@ -328,7 +365,7 @@ class RepoMiner():
                 finally:
                     unfiltered_files.add(n_p)
         else: 
-            unfiltered_files=set(self.get_commit_files(self.get_commit(end_date=end).commit_hash))
+            unfiltered_files=set(self.get_tracked_files())
         if isinstance(unfiltered_files,list):
             logger.debug("Unfiltered files found",extra={"files":unfiltered_files})
         author_files_counter:dict[str,list[str]]=dict()

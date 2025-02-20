@@ -26,13 +26,12 @@ def check_extension(ext:str,additional_extensions:Iterable[str]=[])->tuple[bool,
 class DataFrameAdapter():
     def __init__(self):
         pass
-    def get_dataframe(self,index:Optional[str]=None)->pd.DataFrame:
+    def get_dataframe(self)->pd.DataFrame:
         var_dict=self.__dict__.copy()
         for k,v in var_dict.items():
             var_dict[k]=[v]
         df=pd.DataFrame(var_dict)
-        if index:
-            df.set_index(index,inplace=True,drop=False)
+        df.reset_index(inplace=True)
         return df
 # {'commit': '1c85669eb58fc986d43eb7c878e03cb58fb4883d', 'abbreviated_commit': '1c85669', 'tree': 'c6a6edfde2001a68e123c724625faf7599f82371', 'abbreviated_tree': 'c6a6edf', 'parent': 'efe6fba7d02ad06bec603b57f2e5115b7ccd31d8', 'abbreviated_parent': 'efe6fba', 'refs': 'HEAD -> development, origin/development', 'encoding': '', 'subject': 'optimized truck factor function', 'sanitized_subject_line': 'optimized-truck-factor-function', 'body': '', 'commit_notes': '', 'verification_flag': 'N', 'signer': '', 'signer_key': '', 'author': {'name': 'Gerardo De Luisi', 'email': 'deluisigerardo@gmail.com', 'date': 'Sat, 8 Feb 2025 14:21:03 +0100'}, 'commiter': {'name': 'Gerardo De Luisi', 'email': 'deluisigerardo@gmail.com', 'date': 'Sat, 8 Feb 2025 14:21:03 +0100'}}
 @dataclass
@@ -74,4 +73,12 @@ class CommitInfo(DataFrameAdapter):
     author_email:str
     date:date
     files:list[str]
-
+    
+@dataclass
+class Branch(DataFrameAdapter):
+    name:str
+    commits:list[CommitInfo]
+    def get_dataframe(self)->pd.DataFrame:
+        df_commits=pd.concat((c.get_dataframe() for c in self.commits))
+        df_commits["branch"]=pd.Series([self.name]).repeat(len(df_commits.index))
+        return df_commits

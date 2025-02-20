@@ -11,7 +11,7 @@ import numpy as np
 import plotly.express as px
 from src._internal import make_commit_dataframe,make_author_dataframe
 from src.utility.logs import setup_logging
-
+import dash_bootstrap_components as dbc
 def start_app(repo_path:Union[str|Path]):
     setup_logging()
     import diskcache
@@ -19,7 +19,7 @@ def start_app(repo_path:Union[str|Path]):
     background_callback_manager = DiskcacheManager(cache)
     path=repo_path if isinstance(repo_path,str) else repo_path.as_posix()
     print(path)
-    app=Dash(name="Project Visualization Tool",title="PVT",background_callback_manager=background_callback_manager,use_pages=True,pages_folder=Path(__file__).parent.parent.joinpath("gui","pages").as_posix(),assets_folder=Path(__file__).parent.parent.joinpath("gui","assets").as_posix())
+    app=Dash(name="Project Visualization Tool",title="PVT",external_stylesheets=[dbc.themes.BOOTSTRAP],background_callback_manager=background_callback_manager,use_pages=True,pages_folder=Path(__file__).parent.parent.joinpath("gui","pages").as_posix())
     app.layout = html.Div([
         dcc.Store(id="commit_df"),
         dcc.Store(id="author_df"),
