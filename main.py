@@ -1,5 +1,5 @@
 import src.utility.logs
-__version__="0.0.2"
+__version__="0.0.1"
 from pathlib import Path
 from src.app import start_app
 
