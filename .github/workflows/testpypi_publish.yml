@@ -30,6 +30,7 @@ jobs:
     - name: Get tag
       shell: bash
       run: |
+        git fetch --all --unshallow
         if tag=$(git describe --tags --abbrev=0 2>/dev/null);then
           echo "Found tag $tag"
           echo "TAG=$tag" >> $GITHUB_ENV
