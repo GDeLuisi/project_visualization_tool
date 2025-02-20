@@ -6,6 +6,9 @@ __pycache__/
 # C extensions
 *.so
 
+#general docs
+~$RAD.docx
+
 # Distribution / packaging
 .Python
 build/
@@ -25,7 +28,7 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
-
+cache
 # PyInstaller
 #  Usually these files are written by a python script from a template
 #  before PyInstaller builds the exe, so as to inject date/other infos into it.
@@ -37,11 +40,13 @@ pip-log.txt
 pip-delete-this-directory.txt
 
 # Unit test / coverage reports
+logs/
 htmlcov/
 .tox/
 .nox/
 .coverage
 .coverage.*
+coverage.*
 .cache
 nosetests.xml
 coverage.xml
@@ -50,6 +55,7 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+report.txt
 
 # Translations
 *.mo
