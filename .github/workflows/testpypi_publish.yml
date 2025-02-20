@@ -26,7 +26,8 @@ jobs:
     if:  ${{ inputs.release == true }}
     runs-on: ubuntu-latest
     outputs:
-      tag: ${{ steps.step1.tag_extraction.tag }}
+      tag: ${{ steps.tag_extraction.outputs.tag }}
+      release_tag: ${{ steps.tag_extraction2.outputs.tag_r }}
     steps:
     - uses: actions/checkout@v4
     - name: Get tag
@@ -42,13 +43,13 @@ jobs:
           exit 1
         fi
     - name: Get release tag
-      id: tag_extraction
+      id: tag_extraction2
       if: ${{ github.event.release.tag_name != '' && inputs.release != true }}
       shell: bash
       run: |
         tag=${{ github.event.release.tag_name }}
         echo "Found tag $tag"
-        echo "tag=$tag" >> $GITHUB_OUTPUT
+        echo "tag_r=$tag" >> $GITHUB_OUTPUT
 
   release-build:
     needs:
@@ -58,15 +59,22 @@ jobs:
       matrix:
         p-version: ["3.10","3.11","3.12","3.13"]
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.build.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: ${{matrix.p-version}}
       - name: Build release distributions
+        id: build
         shell: bash
         run: |
           TAG=${{needs.retrieve_tag.outputs.tag}}
+          if [ ! $TAG ];then
+            TAG=${{needs.retrieve_tag.outputs.release_tag}}
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
           sed -i "s/__VERSION__/$TAG/g" pyproject.toml
           # NOTE: put your own distribution build steps here.
           python -m pip install build
@@ -93,7 +101,7 @@ jobs:
       #
       # ALTERNATIVE: if your GitHub Release name is the PyPI project version string
       # ALTERNATIVE: exactly, uncomment the following line instead:https://test.pypi.org/manage/projects/
-      url: https://test.pypi.org/project/project_visualization_tool_GDeLuisi/${{needs.retrieve_tag.outputs.tag}}
+      url: https://test.pypi.org/project/project_visualization_tool_GDeLuisi/${{needs.release-build.outputs.tag}}
     steps:
       - name: Retrieve release distributions
         uses: actions/download-artifact@v4
