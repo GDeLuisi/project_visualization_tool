@@ -23,7 +23,6 @@ permissions:
 
 jobs:
   retrieve_tag:
-    if:  ${{ inputs.release == true }}
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.tag_extraction.outputs.tag }}
@@ -31,6 +30,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Get tag
+      if:  ${{ inputs.release == true }}
       shell: bash
       id: tag_extraction
       run: |
@@ -54,10 +54,6 @@ jobs:
   release-build:
     needs:
       - retrieve_tag
-    strategy:
-      fail-fast: false
-      matrix:
-        p-version: ["3.10","3.11","3.12","3.13"]
     runs-on: ubuntu-latest
     outputs:
       tag: ${{ steps.build.outputs.tag }}
@@ -82,14 +78,10 @@ jobs:
       - name: Upload distributions
         uses: actions/upload-artifact@v4
         with:
-          name: release-dists_${{matrix.p-version}}
+          name: release-dists
           path: dist/
   publish-to-testpypi:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        p-version: ["3.10","3.11","3.12","3.13"]
     needs:
       - release-build
     permissions:
@@ -110,7 +102,7 @@ jobs:
       - name: Retrieve release distributions
         uses: actions/download-artifact@v4
         with:
-          name: release-dists_${{matrix.p-version}}
+          name: release-dists
           path: dist/
       - name: Publish release distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1

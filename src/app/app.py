@@ -13,7 +13,6 @@ from src._internal import make_commit_dataframe,make_author_dataframe
 from src.utility.logs import setup_logging
 import dash_bootstrap_components as dbc
 def start_app(repo_path:Union[str|Path],cicd_test:bool):
-    setup_logging()
     path=repo_path if isinstance(repo_path,str) else repo_path.as_posix()
     print(path)
     app=Dash(name="Project Visualization Tool",title="PVT",external_stylesheets=[dbc.themes.BOOTSTRAP],use_pages=True,pages_folder=Path(__file__).parent.parent.joinpath("gui","pages").as_posix())
