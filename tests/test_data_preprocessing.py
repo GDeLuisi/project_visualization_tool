@@ -1,8 +1,10 @@
-from pytest import mark
+from pytest import mark,raises
 from src._internal.data_typing import Author,CommitInfo
 from time import strptime,struct_time,mktime,gmtime,time
 from src._internal import make_author_dataframe,make_commit_dataframe
+from src._internal.data_preprocessing import getMaxMinMarks,unixTimeMillis,unixToDatetime,getMarks
 from datetime import date
+import datetime as dt
 import pandas as pd
 from utility import logs as log
 import logging
@@ -22,16 +24,22 @@ def test_make_authors_dataframe():
     pd=make_author_dataframe(authors)
 
     assert True
+today=int(dt.datetime.today().timestamp())-1000
+# pd.to_datetime(,unit='s')
+later=(dt.datetime.now().timestamp())
+def test_marks():
+    assert len(getMarks([pd.to_datetime(today,unit='s'),pd.to_datetime(later,unit='s')],2).keys())==1
+    assert len(getMarks([pd.to_datetime(today,unit='s'),pd.to_datetime(later,unit='s')],1).keys())==0
+    with raises(ZeroDivisionError):
+        len(getMarks([pd.to_datetime(today,unit='s'),pd.to_datetime(later,unit='s')],0).keys())==2
+def test_max_min_marks():
+    assert len(getMaxMinMarks(pd.to_datetime(today,unit='s'),pd.to_datetime(later,unit='s')).keys())==2
+
+def test_unixtimemillis():
+    assert int(unixTimeMillis(pd.to_datetime(today,unit='s'))/10000)==int(today/10000)
+    logger.debug(unixTimeMillis(pd.to_datetime(-1,unit='s')))
     
-# def test_dataframe_adapter():
-#     dc=make_commit_dataframe([])
-#     for commit in commits:
-#         dc=pd.concat([dc,commit.get_dataframe("commit_hash")])
-#     # logger.debug(dc.index)
-#     od=make_commit_dataframe(commits)
-#     # logger.debug(od.index)
-#     assert (dc==od).all().all()
-#     da=make_author_dataframe([])
-#     for auth in authors:
-#         da=pd.concat([da,auth.get_dataframe("email")])
-#     assert (da==make_author_dataframe(authors)).all().all()
+def test_unixToDatetime():
+    assert unixToDatetime(unixTimeMillis(pd.to_datetime(today,unit='s')))==pd.to_datetime(today,unit='s',utc=True)
+    logger.debug(unixToDatetime(-1))
+    
