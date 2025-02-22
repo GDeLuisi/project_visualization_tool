@@ -36,9 +36,7 @@ layout = dbc.Container([
                         overlay_style={"visibility":"visible", "filter": "blur(2px)"},
                         ),
                 ]),
-        dbc.Row([
-                dcc.Slider(id="date_slider",marks=None, tooltip={"placement": "bottom", "always_visible": True,"transform": "timestampToUTC"},),
-                ]),
+        html.Br(),
         dbc.Row(id="author_graph_row",children=[
                 
                 dcc.Loading(id="author_loader",children=[
@@ -46,6 +44,9 @@ layout = dbc.Container([
                         ],
                 overlay_style={"visibility":"visible", "filter": "blur(2px)"},
                 ),
+                ]),
+        dbc.Row([
+                dcc.Slider(id="date_slider",marks=None, tooltip={"placement": "bottom", "always_visible": True,"transform": "timestampToUTC"},),
                 ]),
 ])
 
@@ -67,9 +68,13 @@ layout = dbc.Container([
 )
 def update_count_graph(pick,data,branch):
         commit_df=pd.DataFrame(data)
-        count_df=commit_df.groupby(["date","author_name","author_email","dow","dow_n"]).size().reset_index(name="commit_count")
-        count_df.sort_values("dow_n",ascending=True,inplace=True)
-        fig=px.bar(count_df,hover_data=["date"],x=pick,y="commit_count",labels=common_labels,title=f"Commit Distribution {branch if branch else ''}",color="author_name",pattern_shape="author_email",pattern_shape_sequence=["+", "x", "."])        
+        if pick =="dow":
+                count_df=commit_df.groupby(["dow","dow_n"]).size().reset_index(name="commit_count")
+                count_df.sort_values("dow_n",ascending=True,inplace=True)
+                fig=px.bar(count_df,x=pick,y="commit_count",labels=common_labels,title=f"Commit Distribution {branch if branch else ''}")
+        else:
+                count_df=commit_df.groupby(["date"]).size().reset_index(name="commit_count")
+                fig=px.area(count_df,hover_data=["date"],x=pick,y="commit_count",labels=common_labels,title=f"Commit Distribution {branch if branch else ''}")        
         return fig
 @callback(
         Output("commit_df_cache","data"),
@@ -107,10 +112,6 @@ def listen_data(v,data):
         max=unixTimeMillis(max_date)#the last date
         value=int(max-(max-min)/2)#default: the first
         marks=getMaxMinMarks(min_date,max_date)
-        # print(min)
-        # print(max)
-        # print(value)
-        # marks = getMarks(commit_df["date"],24)
         set_props("author_loader_graph",{"display":"auto"})
         set_props("author_loader",{"display":"auto"})
         return commit_df.to_dict("records"),min,max,value,marks
@@ -119,7 +120,7 @@ def listen_data(v,data):
         Output("author_graph","figure"),
         Output("author_loader","display"),
         Input("commit_df_cache","data"),
-        Input("date_slider","drag_value"),
+        Input("date_slider","value"),
         prevent_initial_call=True
 )
 def populate_author_graph(data,value):
@@ -127,10 +128,11 @@ def populate_author_graph(data,value):
                 return no_update,no_update
         df=pd.DataFrame(data)
         df["date"]=pd.to_datetime(df["date"])
-        count_df=df.groupby(["date","author_name"]).size().sort_index(ascending=True).reset_index(name="commit_count")
+        # count_df=df.groupby(["date","author_name"]).size().reset_index(name="commit_count")
         dt=unixToDatetime(value if isinstance(value,int) else value[0])
         # print(count_df["date"].tolist())
-        count_df=count_df.loc[count_df["date"].dt.date <= dt.date()]
+        df=df.loc[df["date"].dt.date <= dt.date()]
+        count_df=df.groupby(["author_name"]).size().reset_index(name="commit_count")
         fig=px.bar(count_df,x="commit_count",y="author_name",labels=common_labels,title="Author commits effort",color="author_name")
         # fig=px.density_heatmap(count_df,x="date",y="author_name",z="commit_count",labels=common_labels,title="Author commits effort")
         # fig=px.line_3d(count_df,x="date",y="author_name",z="commit_count",labels=common_labels,title="Author commits effort")

@@ -8,22 +8,17 @@ from datetime import date
 from functools import cache
 from logging import getLogger
 import time
-
+from datetime import datetime
 logger=getLogger("Data Preprocessing")
 
-def unixTimeMillis(dt):
+def unixTimeMillis(dt:pd.Timestamp):
     ''' Convert datetime to unix timestamp '''
-    return int(time.mktime(dt.timetuple()))
+    return int(dt.timestamp())
 
-def unixTimeMillisSeries(ser:pd.Series):
-    ''' Convert datetime to unix timestamp series'''
-    ns=ser.apply(lambda d: int(time.mktime(d.timetuple())))
-    return ns
-
-def unixToDatetime(unix):
+def unixToDatetime(unix:int)->pd.Timestamp:
     ''' Convert unix timestamp to datetime. '''
-    return pd.to_datetime(unix,unit='s',utc=True,origin="unix")
-def getMaxMinMarks(start_date,end_date):
+    return pd.to_datetime(unix,unit='s',utc=True)
+def getMaxMinMarks(start_date:pd.Timestamp,end_date:pd.Timestamp):
     ''' Returns the marks for labeling. 
     '''
     date_format='%Y-%m-%d'
@@ -31,7 +26,7 @@ def getMaxMinMarks(start_date,end_date):
     result[unixTimeMillis(start_date)] = str(start_date.strftime(date_format))
     result[unixTimeMillis(end_date)] = str(end_date.strftime(date_format))
     return result
-def getMarks(dates, Nth=100):
+def getMarks(dates:Iterable[pd.Timestamp], Nth=100):
     ''' Returns the marks for labeling. 
         Every Nth value will be used.
     '''
