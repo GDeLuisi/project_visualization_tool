@@ -8,8 +8,8 @@ import logging
 import os
 from src.utility.logs import setup_logging
 logger=logging.getLogger("cli")
-def main(args:Optional[Sequence[str]]=None,cicd_test:bool=False):
-    setup_logging()
+def main(args:Optional[Sequence[str]]=None,cicd_test:bool=False,env:str="PROD"):
+    setup_logging(env=env)
     if version_info.minor<10:
         logger.exception(f"System Python version {version_info.major}.{version_info.minor} < Python3.10.x . It is mandatory to at least use Python versions > 3.10.x for a correct usage of the application")
         exit(5)
@@ -40,5 +40,5 @@ def main(args:Optional[Sequence[str]]=None,cicd_test:bool=False):
     except subprocess.CalledProcessError:
         logger.error("Git repo is corrupted, check for your git config files")
         exit(3)
-    start_app(dir,cicd_test)
+    start_app(dir,cicd_test,env=env)
     # find_setd()

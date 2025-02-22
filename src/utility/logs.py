@@ -112,12 +112,15 @@ class MyJSONFormatter(logging.Formatter):
     
 from pathlib import Path
 LOG_CONFIGURED=False
-def setup_logging():
+def setup_logging(env:str="DEV"):
     global LOG_CONFIGURED
     if not LOG_CONFIGURED:
         parent_dir=Path(__file__).parent
         parent_dir.parent.parent.joinpath("logs").mkdir(exist_ok=True)
-        config_file = parent_dir.joinpath("logging_configs","logs_config_file.json") if sys.version_info.minor >=12 else parent_dir.joinpath("logging_configs","logs_config_file_old.json")
+        if env=="DEV":
+            config_file = parent_dir.joinpath("logging_configs","logs_config_file.json") if sys.version_info.minor >=12 else parent_dir.joinpath("logging_configs","logs_config_file_old.json")
+        else:
+            config_file = parent_dir.joinpath("logging_configs","logs_config_file_prod.json") if sys.version_info.minor >=12 else parent_dir.joinpath("logging_configs","logs_config_file_old_prod.json")
         with open(config_file) as f_in:
             config = json.load(f_in)
         logging.config.dictConfig(config)
