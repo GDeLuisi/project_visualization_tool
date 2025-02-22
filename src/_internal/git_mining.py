@@ -20,7 +20,7 @@ import json
 logger=getLogger("Repo Miner")
 #FIXME restructure whole class with recent optimization 
 class RepoMiner():
-    COMMIT_PRETTY_FORMAT='--pretty=format:{"commit": "%H","abbreviated_commit": "%h","tree": "%T","abbreviated_tree": "%t","parent": "%P","abbreviated_parent": "%p","refs": "%D","encoding": "%e","subject": "%s","sanitized_subject_line": "%f","body": "%b","commit_notes": "%N","verification_flag": "%G?","signer": "%GS","signer_key": "%GK","author": {"name": "%aN","email": "%aE","date": "%aD"},"commiter": {"name": "%cN","email": "%cE","date": "%cI"}}'
+    COMMIT_PRETTY_FORMAT='--pretty=format:{"commit": "%H","abbreviated_commit": "%h","tree": "%T","abbreviated_tree": "%t","parent": "%P","abbreviated_parent": "%p","refs": "%D","encoding": "%e","subject": "%s","sanitized_subject_line": "%f","commit_notes": "%N","verification_flag": "%G?","signer": "%GS","signer_key": "%GK","author": {"name": "%aN","email": "%aE","date": "%aD"},"commiter": {"name": "%cN","email": "%cE","date": "%cI"}}|'
     def __init__(self,repo_path:Union[Path,str]):
         self.repo_path=repo_path
         if isinstance(repo_path,Path):
@@ -101,59 +101,68 @@ class RepoMiner():
     #                 arglist.pop(i)
     #                 arglist.insert(i,next_revision)
     #         finished = not last_revision or next_revision==last_revision
+    
             
     def _log(self,arglist:list[str],follow:bool=False)->Generator[list[CommitInfo],None,None]:
         finished=False
         while not finished:
             with self.repo_lock:
-                logs=re.split(string=self.git_repo.log(arglist),pattern=r'\r\n|\n|\r')
+                logs_uf=re.split(string=self.git_repo.log(arglist),pattern=r'\|\r\n|\|\n|\|\r|\|')[:-1]
             # logger.debug("Loaded commits",extra={"commits":logs})
-            if not logs[0] or not logs:
+            if not logs_uf or not logs_uf[0] :
                 logger.debug("Finished Loading")
                 finished=True
                 return []
+            logs:list[str]=[]
             try:
-                logs=[json.loads(log) for log in logs]
-                
-                last_revision=logs[0]["commit"].split(" ")[0]
-                commit_list:list[CommitInfo]=[]
-                for log in logs:
-                    commit_info=CommitInfo(
-                                                        author_email=log["author"]["email"],
-                                                        author_name=log["author"]["name"],
-                                                        commit_hash=log["commit"],
-                                                        abbr_hash=log["abbreviated_commit"],
-                                                        tree=log["tree"],
-                                                        refs=log["refs"],
-                                                        subject=log["subject"],
-                                                        date=date.fromtimestamp(mktime(strptime(log["author"]["date"],"%a, %d %b %Y %H:%M:%S %z"))),
-                                                        parent=log["parent"],
-                                                        files=[])
-                    commit_list.append(commit_info)
-                next_revision=commit_info.parent.strip().split(" ")[0]
-                yield commit_list
-                if follow:
-                    file=arglist.pop()
-                    flag=arglist.pop()
-                    rev=arglist.pop(0)
-                    arglist.insert(0,next_revision)
-                    arglist.append(flag)
-                    arglist.append(file)
-                else:
-                    rev=arglist.pop(0)
-                    if "..." in rev:
-                        start,pr_end=rev.split("...")
-                        next_revision=f"{next_revision}...{pr_end}"
-                    if "--" in rev:
-                        arglist.insert(0,rev)
-                    arglist.insert(0,next_revision)
+                for log in logs_uf:
+                    log=re.sub(string=log,pattern=r'\'|\r\n|\n|\r',repl=" ")
+                    l=re.sub(string=log,pattern=r' \"([^"]+)\"[\"|\s](\,\")?',repl=lambda m: f"{m.group(1)}{'"'+m.group(2) if m.group(2) else ' '}")
                     
-                logger.debug(f"Reloaded arglist {arglist}")
-                finished = not next_revision or next_revision==last_revision or next_revision==rev
+                    logs.append(json.loads(l))
             except json.JSONDecodeError as e:
+                # logger.critical(str(e))
+                logger.critical("Something went wrong with commits loading process")
                 logger.critical(str(e))
-                logger.critical(f"Faulty object {repr(logs)}")
+                logger.critical(f"Faulty object original {log}")
+                logger.critical(f"Faulty object {l}")
                 exit(1)
+            last_revision=logs[0]["commit"].split(" ")[0]
+            commit_list:list[CommitInfo]=[]
+            for log in logs:
+                commit_info=CommitInfo(
+                                                    author_email=log["author"]["email"],
+                                                    author_name=log["author"]["name"],
+                                                    commit_hash=log["commit"],
+                                                    abbr_hash=log["abbreviated_commit"],
+                                                    tree=log["tree"],
+                                                    refs=log["refs"],
+                                                    subject=log["subject"],
+                                                    date=date.fromtimestamp(mktime(strptime(log["author"]["date"],"%a, %d %b %Y %H:%M:%S %z"))),
+                                                    parent=log["parent"],
+                                                    files=[])
+                commit_list.append(commit_info)
+            next_revision=commit_info.parent.strip().split(" ")[0]
+            yield commit_list
+            if follow:
+                file=arglist.pop()
+                flag=arglist.pop()
+                rev=arglist.pop(0)
+                arglist.insert(0,next_revision)
+                arglist.append(flag)
+                arglist.append(file)
+            else:
+                rev=arglist.pop(0)
+                if "..." in rev:
+                    start,pr_end=rev.split("...")
+                    next_revision=f"{next_revision}...{pr_end}"
+                if "--" in rev:
+                    arglist.insert(0,rev)
+                arglist.insert(0,next_revision)
+                
+            logger.debug(f"Reloaded arglist {arglist}")
+            finished = not next_revision or next_revision==last_revision or next_revision==rev
+            
     
     def lazy_load_commits(self,no_merges:bool=True, max_count:int=None,filepath:Optional[Union[str,Path]]=None,relative_path:Optional[Union[str,Path]]=None,start_date:Optional[date]=None,end_date:Optional[date]=None,start_commit:Optional[str]=None,end_commit:Optional[str]=None,author:Optional[str]=None)->Generator[list[CommitInfo],None,None]:
         follow_files=False

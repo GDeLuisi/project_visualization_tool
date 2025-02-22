@@ -1,6 +1,6 @@
 import dash
 from dash import dcc,callback,Input,Output,no_update,set_props,State,clientside_callback,Patch
-from src._internal import RepoMiner,make_commit_dataframe,prune_common_commits
+from src._internal import RepoMiner,make_commit_dataframe,prune_common_commits,getMaxMinMarks,unixTimeMillis,unixToDatetime
 import dash.html as html
 from datetime import date
 import plotly.express as px
@@ -9,10 +9,15 @@ from src._internal.data_typing import Author,CommitInfo
 import dash_bootstrap_components as dbc
 from io import StringIO
 import json
+import time
 from logging import getLogger
 logger=getLogger("mainpage")
 dash.register_page(__name__,"/")
 common_labels={"date":"Date","commit_count":"Number of commits","author_email":"Author's email","author_name":"Author's name","dow":"Day of the week"}
+
+
+#then in the Slider
+
 layout = dbc.Container([
         dcc.Loading(fullscreen=True,children=[
                 dcc.Store(id="commit_df_cache"),
@@ -31,10 +36,14 @@ layout = dbc.Container([
                         overlay_style={"visibility":"visible", "filter": "blur(2px)"},
                         ),
                 ]),
+        dbc.Row([
+                dcc.Slider(id="date_slider",marks=None, tooltip={"placement": "bottom", "always_visible": True,"transform": "timestampToUTC"},),
+                ]),
         dbc.Row(id="author_graph_row",children=[
+                
                 dcc.Loading(id="author_loader",children=[
-                dcc.Graph(id="author_graph")
-                ],
+                        dcc.Graph(id="author_graph")
+                        ],
                 overlay_style={"visibility":"visible", "filter": "blur(2px)"},
                 ),
                 ]),
@@ -64,11 +73,16 @@ def update_count_graph(pick,data,branch):
         return fig
 @callback(
         Output("commit_df_cache","data"),
+        Output("date_slider","min"),
+        Output("date_slider","max"),
+        Output("date_slider","value"),
+        Output("date_slider","marks"),
         Input("branch_picker","value"),
         State("repo_path","data")
 )
 def listen_data(v,data):
         rp=RepoMiner(data)
+        
         set_props("branch_picker",{"options":list(( b.name for b in rp.get_branches(deep=False)))})
         set_props("author_loader",{"display":"show"})
         set_props("author_loader_graph",{"display":"show"})
@@ -86,18 +100,40 @@ def listen_data(v,data):
         commit_df["date"]=pd.to_datetime(commit_df["date"])
         commit_df["dow"]=commit_df["date"].dt.day_name()
         commit_df["dow_n"]=commit_df["date"].dt.day_of_week
+        #transform every unique date to a number
+        min_date=commit_df["date"].min()
+        max_date=commit_df["date"].max()
+        min=unixTimeMillis(min_date)#the first date
+        max=unixTimeMillis(max_date)#the last date
+        value=int(max-(max-min)/2)#default: the first
+        marks=getMaxMinMarks(min_date,max_date)
+        # print(min)
+        # print(max)
+        # print(value)
+        # marks = getMarks(commit_df["date"],24)
         set_props("author_loader_graph",{"display":"auto"})
         set_props("author_loader",{"display":"auto"})
-        return commit_df.to_dict("records")
+        return commit_df.to_dict("records"),min,max,value,marks
 
 @callback(
         Output("author_graph","figure"),
         Output("author_loader","display"),
         Input("commit_df_cache","data"),
+        Input("date_slider","drag_value"),
         prevent_initial_call=True
 )
-def populate_author_graph(data):
+def populate_author_graph(data,value):
+        if not value:
+                return no_update,no_update
         df=pd.DataFrame(data)
+        df["date"]=pd.to_datetime(df["date"])
         count_df=df.groupby(["date","author_name"]).size().sort_index(ascending=True).reset_index(name="commit_count")
-        fig=px.bar(count_df,orientation="h",x="commit_count",y="author_name",animation_frame="date",labels=common_labels,color="author_name",title="Author commits effort",range_x=[count_df["commit_count"].min(),count_df["commit_count"].max()])
+        dt=unixToDatetime(value if isinstance(value,int) else value[0])
+        # print(count_df["date"].tolist())
+        count_df=count_df.loc[count_df["date"].dt.date <= dt.date()]
+        fig=px.bar(count_df,x="commit_count",y="author_name",labels=common_labels,title="Author commits effort",color="author_name")
+        # fig=px.density_heatmap(count_df,x="date",y="author_name",z="commit_count",labels=common_labels,title="Author commits effort")
+        # fig=px.line_3d(count_df,x="date",y="author_name",z="commit_count",labels=common_labels,title="Author commits effort")
+        # fig=px.scatter_3d(count_df,x="date",y="author_name",z="commit_count",labels=common_labels,title="Author commits effort")
         return fig,"auto"
+        

@@ -7,10 +7,41 @@ from time import strftime,gmtime
 from datetime import date
 from functools import cache
 from logging import getLogger
+import time
 
 logger=getLogger("Data Preprocessing")
 
+def unixTimeMillis(dt):
+    ''' Convert datetime to unix timestamp '''
+    return int(time.mktime(dt.timetuple()))
 
+def unixTimeMillisSeries(ser:pd.Series):
+    ''' Convert datetime to unix timestamp series'''
+    ns=ser.apply(lambda d: int(time.mktime(d.timetuple())))
+    return ns
+
+def unixToDatetime(unix):
+    ''' Convert unix timestamp to datetime. '''
+    return pd.to_datetime(unix,unit='s',utc=True,origin="unix")
+def getMaxMinMarks(start_date,end_date):
+    ''' Returns the marks for labeling. 
+    '''
+    date_format='%Y-%m-%d'
+    result={}
+    result[unixTimeMillis(start_date)] = str(start_date.strftime(date_format))
+    result[unixTimeMillis(end_date)] = str(end_date.strftime(date_format))
+    return result
+def getMarks(dates, Nth=100):
+    ''' Returns the marks for labeling. 
+        Every Nth value will be used.
+    '''
+
+    result = {}
+    for i, date in enumerate(dates):
+        if(i%Nth == 1):
+            # Append value to dict
+            result[unixTimeMillis(date)] = str(date.strftime('%Y-%m-%d'))
+    return result
 def prune_common_commits(branches:Iterable[Branch]):
     pass
     # for i,b in enumerate(branches):
