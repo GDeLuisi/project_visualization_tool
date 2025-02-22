@@ -117,8 +117,7 @@ class RepoMiner():
             try:
                 for log in logs_uf:
                     log=re.sub(string=log,pattern=r'\'|\r\n|\n|\r',repl=" ")
-                    l=re.sub(string=log,pattern=r' \"([^"]+)\"[\"|\s](\,\")?',repl=lambda m: f"{m.group(1)}{'"'+m.group(2) if m.group(2) else ' '}")
-                    
+                    l=re.sub(string=log,pattern=r' \"([^"]+)\"[\"|\s](\,\")?',repl=lambda m: f"{m.group(1)}{'\"'+m.group(2) if m.group(2) else ' '}")
                     logs.append(json.loads(l))
             except json.JSONDecodeError as e:
                 # logger.critical(str(e))
