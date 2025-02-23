@@ -1,7 +1,8 @@
 from  dataclasses import dataclass,field
 from datetime import date
 from time import strptime
-from typing import Literal,get_args,Iterable,Optional
+from .exceptions import ObjectNotInTreeError
+from typing import Literal,get_args,Iterable,Optional,Union,Generator
 import json
 import pandas as pd
 from pathlib import Path
@@ -78,3 +79,112 @@ class CommitInfo(DataFrameAdapter):
 class Branch(DataFrameAdapter):
     name:str
     commits:list[str]
+@dataclass
+class File(DataFrameAdapter):
+    name:str
+    size:str
+    path:str
+    hash_string:str
+    def __eq__(self, value):
+        if not isinstance(value,File):
+            raise TypeError(f"Cannot compare type File with {type(value)}")
+        return value.hash_string==self.hash_string
+    def __hash__(self):
+        return self.hash_string.__hash__()
+@dataclass
+class Folder():
+    name:str
+    content:dict[str,Union[File,'Folder']]
+    hash_string:str
+    path:str
+    def __eq__(self, value):
+        if not isinstance(value,Folder):
+            raise TypeError(f"Cannot compare type Folder with {type(value)}")
+        return value.hash_string==self.hash_string
+    def __hash__(self):
+        return self.hash_string.__hash__()
+    
+class TreeStructure():
+    def __init__(self,content:Iterable[Union[Folder,File]],hash:str):
+        self.base:Folder=Folder(name="",content=dict(),path="",hash_string=hash)
+        for c in content:
+            c.path=Path(self.base.name).joinpath(c.name).as_posix()
+            self.base.content[c.name]=c
+            
+    def walk(self,files_only:bool=False,dirs_only:bool=False)->Generator[Union[Folder,File],None,None]:
+        if files_only and dirs_only:
+            raise ValueError("Arguments files_only and dirs_only must be mutually exclusive")
+        objects=self.base.content.values()
+        folders_to_visit:list[Folder]=[]
+        end=False
+        for o in objects:
+            if isinstance(o,File):
+                if not dirs_only:
+                    yield o
+            else:
+                folders_to_visit.append(o)
+                if not files_only:
+                    yield o
+        while not end:
+            fold=folders_to_visit.pop()
+            for o in fold.content.values():
+                if isinstance(o,Folder):
+                    folders_to_visit.append(o)
+                    if not files_only:
+                        yield o
+                elif isinstance(o,File) and not dirs_only:
+                    yield o
+            end = not folders_to_visit
+            
+            
+    def walk_folder(self,name:str,files_only:bool=False,dirs_only:bool=False)->Generator[Union[Folder,File],None,None]:
+        if files_only and dirs_only:
+            raise ValueError("Arguments files_only and dirs_only must be mutually exclusive")
+        if name not in self.base.content:
+            raise ObjectNotInTreeError(f"Object {name} not found among objects {' '.join(self.base.content.keys())}")
+        obj=self.base.content[name]
+        if isinstance(obj,Folder):
+            end=False
+            folders_to_visit:list[Folder]=[obj]
+            while not end:
+                fold=folders_to_visit.pop()
+                for o in fold.content.values():
+                    if isinstance(o,Folder):
+                        folders_to_visit.append(o)
+                        if not files_only:
+                            yield o
+                    elif isinstance(o,File) and not dirs_only:
+                        yield o
+                end = not folders_to_visit
+        else:
+            yield obj
+    
+    def find(self,name:str,type:Optional[Literal["file","folder"]]=None)->Generator[Union[File,Folder],None,None]:
+        folder_only=False
+        file_only=False
+        if type:
+            if type=="file":
+                file_only=True
+            elif type=="folder":
+                folder_only=True
+            else:
+                raise TypeError("The only accepted type values are 'file' and 'folder'")
+        for o in self.walk(file_only,folder_only):
+            if o.name==name:
+                yield o
+                
+    def get(self,path:str)->Union[File,Folder]:
+        parts=Path(path).parts
+        ret_object=None
+        to_explore:list[Folder]=[self.base]
+
+        for p in parts:
+            obj=to_explore.pop()
+            if p in obj.content:
+                if isinstance(obj.content[p],Folder):
+                    to_explore.append(obj.content[p])
+                ret_object=obj.content[p]
+            else:
+                raise ObjectNotInTreeError(f"Path {path} is not part of this tree")
+            
+        return ret_object

@@ -18,7 +18,7 @@ from logging import getLogger
 from functools import cached_property
 import json
 logger=getLogger("Repo Miner")
-#FIXME restructure whole class with recent optimization 
+
 class RepoMiner():
     COMMIT_PRETTY_FORMAT='--pretty=format:{"commit": "%H","abbreviated_commit": "%h","tree": "%T","abbreviated_tree": "%t","parent": "%P","abbreviated_parent": "%p","refs": "%D","encoding": "%e","subject": "%s","sanitized_subject_line": "%f","commit_notes": "%N","verification_flag": "%G?","signer": "%GS","signer_key": "%GK","author": {"name": "%aN","email": "%aE","date": "%aD"},"commiter": {"name": "%cN","email": "%cE","date": "%cI"}}|'
     def __init__(self,repo_path:Union[Path,str]):
@@ -278,7 +278,7 @@ class RepoMiner():
         with self.repo_lock:
             files=re.split(string=self.git_repo.ls_files(),pattern=r'\r\n|\n|\r')
         return files
-    #TODO include option to use multiple filenames
+
     def get_source_code(self,file:Union[str,Path],commit:Optional[str]=None)->list[str]:
         text=[]
         file_path=file
@@ -306,6 +306,10 @@ class RepoMiner():
         with self.repo_lock:
             return self.git_repo.ls_tree("-r","--name-only",cm).split("\n")
     
+    def get_dir_structure(self,commit:Optional[str]=None)->dict[str,dict]:
+        cm=commit if commit else "HEAD"
+        with self.repo_lock:
+            pass
     def _calculate_DL(self,input_tuple:tuple[Author,list[CommitInfo]])->int:
         author,commit_list=input_tuple
         contribution=0
@@ -341,7 +345,6 @@ class RepoMiner():
         return (filepath,author_doa)
     
     def infer_programming_language(self,files:Iterable[str],threshold:float=0.35)->list[str]:
-        #TODO add None files to fetch from HEAD files
         suffix_count:dict[str,int]=dict()
         fs=set(files)
         tot_files=len(fs)
@@ -431,39 +434,3 @@ class RepoMiner():
                     break
         return (tf,author_files_counter)
     
-    # def update(self,fetch_all:bool=False,pull_all:bool=False):
-    #     if fetch_all:
-    #         self.git_repo.fetch("--all")
-    #     if pull_all:
-    #         self.git_repo.pull("--all")
-    #     # "--all","--name-only","--pretty=format:|{'commit': '1c85669eb58fc986d43eb7c878e03cb58fb4883d', 'abbreviated_commit': '1c85669', 'tree': 'c6a6edfde2001a68e123c724625faf7599f82371', 'abbreviated_tree': 'c6a6edf', 'parent': 'efe6fba7d02ad06bec603b57f2e5115b7ccd31d8', 'abbreviated_parent': 'efe6fba', 'refs': 'HEAD -> development, origin/development', 'encoding': '', 'subject': 'optimized truck factor function', 'sanitized_subject_line': 'optimized-truck-factor-function', 'body': '', 'commit_notes': '', 'verification_flag': 'N', 'signer': '', 'signer_key': '', 'author': {'name': 'Gerardo De Luisi', 'email': 'deluisigerardo@gmail.com', 'date': 'Sat, 8 Feb 2025 14:21:03 +0100'}, 'commiter': {'name': 'Gerardo De Luisi', 'email': 'deluisigerardo@gmail.com', 'date': 'Sat, 8 Feb 2025 14:21:03 +0100'}}
-    #     files:list[str]=self.git_repo.log("--all","--name-only","--pretty=format:|").split('|')
-    #     files=list(reversed([re.split(string=file.strip('\n\r'),pattern=r'\r\n|\n|\r') for file in files][1:]))
-    #     logs=re.split(string=self.git_repo.log("--all","--no-merges",'--pretty=format:{"commit": "%H","abbreviated_commit": "%h","tree": "%T","abbreviated_tree": "%t","parent": "%P","abbreviated_parent": "%p","refs": "%D","encoding": "%e","subject": "%s","sanitized_subject_line": "%f","body": "%b","commit_notes": "%N","verification_flag": "%G?","signer": "%GS","signer_key": "%GK","author": {"name": "%aN","email": "%aE","date": "%aD"},"commiter": {"name": "%cN","email": "%cE","date": "%cD"}}'),pattern=r'\r\n|\n|\r')
-    #     logs=reversed([json.loads(log) for log in logs])
-    #     author_dict:dict[Author,dict[str,list]]=dict()
-    #     for i,log in enumerate(logs):
-    #         auth=Author(log["author"]["email"],log["author"]["name"])
-    #         if not auth in author_dict:
-    #             author_dict[auth]=dict(files=set(),commits=list())
-    #         author_dict[auth]["files"].update(files[i])
-    #         author_dict[auth]["commits"].append(log["commit"])
-            
-    #         self.commits_info[log["commit"]]=CommitInfo(
-    #                                             author_email=log["author"]["email"],
-    #                                             author_name=log["author"]["name"],
-    #                                             commit_hash=log["commit"],
-    #                                             abbr_hash=log["abbreviated_commit"],
-    #                                             tree=log["tree"],
-    #                                             refs=log["refs"],
-    #                                             subject=log["subject"],
-    #                                             date=date.fromtimestamp(mktime(strptime(log["author"]["date"],"%a, %d %b %Y %H:%M:%S %z"))),
-    #                                             parent=log["parent"],
-    #                                             files=files[i])
-    #     for author,v in author_dict.items():
-    #         author.files_modifed=v["files"]
-    #         author.commits_authored=v["commits"]
-    #         self.authors.add(author)
-        # self.commit_list=[self.repo.commit(hash) for hash in self.commit_list_hashes]
-        # [commit.stats for commit in self.commit_list]
-        # self.truck_factor=self.get_truck_factor()[0]
