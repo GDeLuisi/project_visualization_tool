@@ -2,6 +2,7 @@ from _internal import git_mining as gm
 from pathlib import Path
 import utility.logs as log
 import logging
+from git.exc import GitCommandError
 from pytest import fixture,mark,raises
 from pydriller import Git
 from _internal.data_typing import Author
@@ -27,6 +28,29 @@ def test_get_all_authors(repo_miner):
             assert False
     assert True
 
+def get_last(ls:list):
+    return ls[-1]
+rev_test_args=[
+    (False,10,False,None,None,None,None,False,len,10),
+    (False,10,True,None,None,None,None,False,None,10),
+    (False,-1,True,None,None,None,None,False,get_last,"c38d21165cc5db6a345beee77adaa60691de0525"),
+    (False,0,True,None,None,None,None,False,None,1),
+    (False,100,True,None,None,None,"development",True,None,100),
+    (False,10,True,None,None,None,"main",True,None,10),
+    (False,100,True,None,None,None,"non_exist",True,None,None),
+    (True,10,True,None,None,"development","main",True,any,True),
+    
+]
+@mark.parametrize("no_merges,max_count,count_only,start_date,end_date,start_commit,end_commit,only_branch,fun_exp,expected",rev_test_args)
+def test_rev_list(repo_miner,no_merges,max_count,count_only,start_date,end_date,start_commit,end_commit,only_branch,fun_exp,expected):
+    if expected:
+        if fun_exp:
+            fun_exp(repo_miner._rev_list(only_branch=only_branch,max_count=max_count,no_merges=no_merges,count_only=count_only,from_date=start_date,to_date=end_date,from_commit=start_commit,to_commit=end_commit))==expected
+        else:
+            repo_miner._rev_list(only_branch=only_branch,max_count=max_count,no_merges=no_merges,count_only=count_only,from_date=start_date,to_date=end_date,from_commit=start_commit,to_commit=end_commit)==expected
+    else:
+        with raises(GitCommandError):
+            repo_miner._rev_list(only_branch=only_branch,max_count=max_count,no_merges=no_merges,count_only=count_only,from_date=start_date,to_date=end_date,from_commit=start_commit,to_commit=end_commit)
 def test_get_branches(repo_miner):
     assert set((b.name for b in repo_miner.get_branches()))=={"main","development"}
 

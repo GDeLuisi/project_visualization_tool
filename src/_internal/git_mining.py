@@ -57,11 +57,11 @@ class RepoMiner():
         commit_range=""
         commit_range=commit_range+start_commit if start_commit else ""
         if end_commit:
-            commit_range=commit_range+"..."+end_commit if commit_range else end_commit
+            commit_range=commit_range+".."+end_commit if commit_range else end_commit
         elif not start_commit:
             commit_range=deafult
         else:
-            commit_range=commit_range+f"...{deafult}"
+            commit_range=commit_range+f"..{deafult}"
         return commit_range
     
     # def _rev_list(self,arglist:list[str])->Generator[list[CommitInfo],None,None]:
@@ -102,7 +102,23 @@ class RepoMiner():
     #                 arglist.insert(i,next_revision)
     #         finished = not last_revision or next_revision==last_revision
     
-            
+    def _rev_list(self,only_branch:Optional[str]=None,max_count:Optional[int]=None,no_merges:bool=True,count_only:bool=False,from_commit:Optional[str]=None,to_commit:Optional[str]=None,from_date:Optional[date]=None,to_date:Optional[date]=None)->list[str]:
+        arglist=[]
+        commit_range=self._load_commits_commit_range(start_commit=from_commit,end_commit=to_commit)
+        arglist.append(commit_range)
+        arglist.extend(self._load_commits_date_range(from_date,to_date))
+        if max_count:
+            arglist.append(f"--max-count={max_count}")
+        if count_only:
+            arglist.append("--count")
+        if no_merges:
+            arglist.append("--no-merges")
+        if only_branch:
+            arglist.append("--first-parent")
+        logger.debug("Calling rev-list with the following args",extra={"arguments":arglist})
+        with self.repo_lock:
+            commits=re.split(string=self.git_repo.rev_list(arglist),pattern=r'\r\n|\n|\r')
+        return commits
     def _log(self,arglist:list[str],follow:bool=False)->Generator[list[CommitInfo],None,None]:
         finished=False
         while not finished:
@@ -152,8 +168,8 @@ class RepoMiner():
                 arglist.append(file)
             else:
                 rev=arglist.pop(0)
-                if "..." in rev:
-                    start,pr_end=rev.split("...")
+                if ".." in rev:
+                    start,pr_end=rev.split("..")
                     next_revision=f"{next_revision}...{pr_end}"
                 if "--" in rev:
                     arglist.insert(0,rev)
@@ -198,7 +214,11 @@ class RepoMiner():
                         yield Branch(name=head.name,commits=[])
         
     def get_branch(self,branch:str)->Branch:
-        commits=next(self.lazy_load_commits(end_commit=branch))
+        try:
+            commits=self._rev_list(only_branch=True,to_commit=branch)
+        except exc.GitCommandError():
+            logger.error("Branch not found")
+            raise ValueError("Branch not found")
         return Branch(commits=commits,name=branch)
     
     def get_authors(self)->set[Author]:

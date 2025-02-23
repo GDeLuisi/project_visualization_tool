@@ -1,5 +1,5 @@
 import dash
-from dash import dcc,callback,Input,Output,no_update,set_props,State,clientside_callback,Patch
+from dash import dcc,callback,Input,Output,no_update,set_props,State,clientside_callback,Patch,ctx
 from src._internal import RepoMiner,make_commit_dataframe,prune_common_commits,getMaxMinMarks,unixTimeMillis,unixToDatetime
 import dash.html as html
 from datetime import date
@@ -15,14 +15,15 @@ logger=getLogger("mainpage")
 dash.register_page(__name__,"/")
 common_labels={"date":"Date","commit_count":"Number of commits","author_email":"Author's email","author_name":"Author's name","dow":"Day of the week"}
 
-
-#then in the Slider
-
 layout = dbc.Container([
+        dcc.Store(id="branch_cache"),
         dcc.Loading(fullscreen=True,children=[
                 dcc.Store(id="commit_df_cache"),
                 ]),
         dbc.Row(id="choices",children=[
+                dbc.Col(
+                        children=[dbc.Button(id="reload_button",children="Refresh Data")],
+                        width=1),
                 dbc.Col(
                         children=[dbc.Label(["Branch Picker"]),dcc.Dropdown(id="branch_picker",searchable=True,clearable=True,placeholder="Branch name")],
                         width=5),
@@ -62,7 +63,7 @@ layout = dbc.Container([
 @callback(
         Output("graph","figure"),
         Input("x_picker","value"),
-        Input("commit_df_cache","data"),
+        Input("branch_cache","data"),
         State("branch_picker","value"),
         prevent_initial_call=True
 )
@@ -78,64 +79,81 @@ def update_count_graph(pick,data,branch):
         return fig
 @callback(
         Output("commit_df_cache","data"),
-        Output("date_slider","min"),
-        Output("date_slider","max"),
-        Output("date_slider","value"),
-        Output("date_slider","marks"),
-        Input("branch_picker","value"),
-        State("repo_path","data")
+        Input("reload_button","n_clicks"),
+        State("repo_path","data"),
+        State("commit_df_cache","data"),
 )
-def listen_data(v,data):
+def listen_data(_,data,cache):
+        if cache:
+                raise dash.exceptions.PreventUpdate
         rp=RepoMiner(data)
-        
         set_props("branch_picker",{"options":list(( b.name for b in rp.get_branches(deep=False)))})
         set_props("author_loader",{"display":"show"})
         set_props("author_loader_graph",{"display":"show"})
         m_count=None
-        branch=None if not v or "all" == v else v
         commit_df=pd.DataFrame()
-        if not branch:
-                for commit_list in rp.lazy_load_commits(max_count=m_count):
-                        cl_df=pd.concat(map(lambda c:c.get_dataframe(),commit_list))
-                        # print(cl_df.info())
-                        commit_df=pd.concat([commit_df,cl_df])
-        else:
-                commit_df=rp.get_branch(branch).get_dataframe()
+        for commit_list in rp.lazy_load_commits(max_count=m_count):
+                cl_df=pd.concat(map(lambda c:c.get_dataframe(),commit_list))
+                # print(cl_df.info())
+                commit_df=pd.concat([commit_df,cl_df])
         commit_df.reset_index(inplace=True)
         commit_df["date"]=pd.to_datetime(commit_df["date"])
         commit_df["dow"]=commit_df["date"].dt.day_name()
         commit_df["dow_n"]=commit_df["date"].dt.day_of_week
-        #transform every unique date to a number
-        min_date=commit_df["date"].min()
-        max_date=commit_df["date"].max()
-        min=unixTimeMillis(min_date)#the first date
-        max=unixTimeMillis(max_date)#the last date
-        value=int(max-(max-min)/2)#default: the first
-        marks=getMaxMinMarks(min_date,max_date)
+        
         set_props("author_loader_graph",{"display":"auto"})
         set_props("author_loader",{"display":"auto"})
-        return commit_df.to_dict("records"),min,max,value,marks
-
+        return commit_df.to_dict("records")
+@callback(
+        Output("branch_cache","data"),
+        Input("branch_picker","value"),
+        Input("commit_df_cache","data"),
+        State("repo_path","data"),
+        prevent_initial_call=True
+)
+def filter_branch_data(v,cache,path):
+        branch=None if not v or "all" == v else v
+        if v and v!="all":
+                rp=RepoMiner(path)
+                df=pd.DataFrame(cache)
+                b=rp.get_branch(branch)
+                # print(len(b.commits))
+                df=df[df["commit_hash"].isin(b.commits)]
+                # df.info()
+                return df.to_dict("records")
+        return cache
 @callback(
         Output("author_graph","figure"),
         Output("author_loader","display"),
-        Input("commit_df_cache","data"),
+        Output("date_slider","min"),
+        Output("date_slider","max"),
+        Output("date_slider","value"),
+        Output("date_slider","marks"),
+        Input("branch_cache","data"),
         Input("date_slider","value"),
         prevent_initial_call=True
 )
 def populate_author_graph(data,value):
-        if not value:
-                return no_update,no_update
         df=pd.DataFrame(data)
         df["date"]=pd.to_datetime(df["date"])
-        # count_df=df.groupby(["date","author_name"]).size().reset_index(name="commit_count")
+        triggerer=ctx.triggered_id
+        if triggerer!= "date_slider":
+                min_date=df["date"].min()
+                max_date=df["date"].max()
+                min=unixTimeMillis(min_date)#the first date
+                max=unixTimeMillis(max_date)#the last date
+                value=int(max-(max-min)/2)#default: the first
+                marks=getMaxMinMarks(min_date,max_date)
+                dt=unixToDatetime(value if isinstance(value,int) else value[0])
+                # print(count_df["date"].tolist())
+                df=df.loc[df["date"].dt.date <= dt.date()]
+                count_df=df.groupby(["author_name"]).size().reset_index(name="commit_count")
+                fig=px.bar(count_df,x="commit_count",y="author_name",labels=common_labels,title="Author commits effort",color="author_name")
+                return fig,"auto",min,max,value,marks
         dt=unixToDatetime(value if isinstance(value,int) else value[0])
         # print(count_df["date"].tolist())
         df=df.loc[df["date"].dt.date <= dt.date()]
         count_df=df.groupby(["author_name"]).size().reset_index(name="commit_count")
         fig=px.bar(count_df,x="commit_count",y="author_name",labels=common_labels,title="Author commits effort",color="author_name")
-        # fig=px.density_heatmap(count_df,x="date",y="author_name",z="commit_count",labels=common_labels,title="Author commits effort")
-        # fig=px.line_3d(count_df,x="date",y="author_name",z="commit_count",labels=common_labels,title="Author commits effort")
-        # fig=px.scatter_3d(count_df,x="date",y="author_name",z="commit_count",labels=common_labels,title="Author commits effort")
-        return fig,"auto"
+        return fig,"auto",no_update,no_update,no_update,no_update
         

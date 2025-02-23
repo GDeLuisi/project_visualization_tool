@@ -77,8 +77,4 @@ class CommitInfo(DataFrameAdapter):
 @dataclass
 class Branch(DataFrameAdapter):
     name:str
-    commits:list[CommitInfo]
-    def get_dataframe(self)->pd.DataFrame:
-        df_commits=pd.concat((c.get_dataframe() for c in self.commits))
-        df_commits["branch"]=pd.Series([self.name]).repeat(len(df_commits.index))
-        return df_commits
+    commits:list[str]
