@@ -115,6 +115,8 @@ class RepoMiner():
             arglist.append("--no-merges")
         if only_branch:
             arglist.append("--first-parent")
+        else:
+            arglist.append("--all")
         logger.debug("Calling rev-list with the following args",extra={"arguments":arglist})
         with self.repo_lock:
             commits=re.split(string=self.git_repo.rev_list(arglist),pattern=r'\r\n|\n|\r')
@@ -212,15 +214,23 @@ class RepoMiner():
             else:
                     for head in self.repo.branches:
                         yield Branch(name=head.name,commits=[])
-        
-    def get_branch(self,branch:str)->Branch:
+    def get_branch(self,branch:str,diff_branch:Optional[str]=None)->Branch:
         try:
-            commits=self._rev_list(only_branch=True,to_commit=branch)
+            commits=self._rev_list(only_branch=True,to_commit=branch,from_commit=diff_branch)
         except exc.GitCommandError():
             logger.error("Branch not found")
             raise ValueError("Branch not found")
         return Branch(commits=commits,name=branch)
     
+    def count_commits(self,from_commit:Optional[str]=None,to_commit:Optional[str]=None):
+        count=0
+        try:
+            count=int( self._rev_list(only_branch=to_commit !=None,count_only=True,to_commit=to_commit,from_commit=from_commit)[0] )
+            
+        except exc.GitCommandError():
+            logger.error("Branch not found")
+            raise ValueError("Branch not found")
+        return count
     def get_authors(self)->set[Author]:
         pattern=re.compile(r'([\w\s]+) <([a-z0-9A-Z!#$%@.&*+\/=?^_{|}~-]+)> \(\d+\)')
         authors:set[Author]=set()

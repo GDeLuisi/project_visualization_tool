@@ -53,6 +53,8 @@ def test_rev_list(repo_miner,no_merges,max_count,count_only,start_date,end_date,
             repo_miner._rev_list(only_branch=only_branch,max_count=max_count,no_merges=no_merges,count_only=count_only,from_date=start_date,to_date=end_date,from_commit=start_commit,to_commit=end_commit)
 def test_get_branches(repo_miner):
     assert set((b.name for b in repo_miner.get_branches()))=={"main","development","dir_structure"}
+    assert repo_miner.get_branch("development").name =="development"
+    assert len( repo_miner.get_branch("development","main").commits ) <100
 
 
 def test_get_author_in_range(repo_miner):
@@ -195,3 +197,8 @@ def test_calculate_truck_factor(repo_miner,paths,suffixes,date_range):
     tf=repo_miner.get_truck_factor(paths,suffixes_of_interest=suffixes,date_range=date_range)
     # logger.debug(list(map(lambda k: (k[0],len(k[1])),tf[1].items())))
     assert tf[0]==1
+def test_get_count(repo_miner):
+    assert repo_miner.count_commits() >0
+    assert repo_miner.count_commits("development")>0
+    assert repo_miner.count_commits(to_commit="development")>0
+    assert repo_miner.count_commits("development","main")>0
