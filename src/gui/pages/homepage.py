@@ -5,7 +5,8 @@ import dash.html as html
 from datetime import date
 import plotly.express as px
 import pandas as pd
-from src._internal.data_typing import Author,CommitInfo
+from pathlib import Path
+from src._internal.data_typing import Author,CommitInfo,TreeStructure,File,Folder
 import dash_bootstrap_components as dbc
 from io import StringIO
 import json
@@ -49,6 +50,7 @@ layout = dbc.Container([
         dbc.Row([
                 dcc.Slider(id="date_slider",marks=None, tooltip={"placement": "bottom", "always_visible": True,"transform": "timestampToUTC"},),
                 ]),
+        dcc.Graph("test")
 ])
 
 # @callback(
@@ -84,8 +86,6 @@ def update_count_graph(pick,data,branch):
         State("commit_df_cache","data"),
 )
 def listen_data(_,data,cache):
-        if cache:
-                raise dash.exceptions.PreventUpdate
         rp=RepoMiner(data)
         set_props("branch_picker",{"options":list(( b.name for b in rp.get_branches(deep=False)))})
         set_props("author_loader",{"display":"show"})

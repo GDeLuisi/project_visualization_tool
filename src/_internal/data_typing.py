@@ -92,7 +92,7 @@ class File(DataFrameAdapter):
     def __hash__(self):
         return self.hash_string.__hash__()
 @dataclass
-class Folder():
+class Folder(DataFrameAdapter):
     name:str
     content:dict[str,Union[File,'Folder']]
     hash_string:str
@@ -104,36 +104,94 @@ class Folder():
     def __hash__(self):
         return self.hash_string.__hash__()
     
-class TreeStructure():
+    def get_dataframe(self):
+        df_dict:dict[str|int,list]=dict()
+        df_dict["folder"]=[self.base.name]
+        df_dict["hash_string"]=[self.base.hash_string]
+        df_dict["size"]=[pd.NA]
+        df_dict["file"]=[pd.NA]
+        df_dict["contained_folder"]
+        df=pd.DataFrame()
+        for k,v in self.content.items():
+            df_dict["hash_string"].append(v.hash_string)
+            if isinstance(v,Folder):
+                nd=v.get_dataframe()
+                df_dict["size"].append(pd.NA)
+                df_dict["folder"].append(k)
+                df_dict["file"].append(pd.NA)
+                df=pd.concat([df,nd])
+            else:
+                df_dict["folder"].append(self.name)
+                df_dict["file"].append(k)
+                df_dict["size"].append(v.size)
+        return pd.concat([df,pd.DataFrame(df_dict)])
+
+    def get_dataframe_dict(self,level:int)->dict[str]:
+        df_dict:dict[str|int,list]=dict()
+        df_dict["hash_string"]=list()
+        df_dict["size"]=list()
+        level+=1
+        df_dict[level]=list()
+        for k,v in self.content.items():
+            df_dict[level].append(k)
+            df_dict["hash_string"].append(v.hash_string)
+            if isinstance(v,Folder):
+                nd=v.get_dataframe_dict(level)
+                df_dict["hash_string"].extend(nd["hash_string"])
+                df_dict["size"].extend(nd["size"])
+                for k in nd.keys():
+                    if k not in df_dict:
+                        df_dict[k]=nd[k]
+            else:
+                df_dict["size"].append(v.size) 
+        return df_dict
+
+class TreeStructure(DataFrameAdapter):
     def __init__(self,content:Iterable[Union[Folder,File]],hash:str):
-        self.base:Folder=Folder(name="",content=dict(),path="",hash_string=hash)
+        self.base:Folder=Folder(name="root",content=dict(),path="",hash_string=hash)
         for c in content:
             c.path=Path(self.base.name).joinpath(c.name).as_posix()
             self.base.content[c.name]=c
-            
-    def walk(self,files_only:bool=False,dirs_only:bool=False)->Generator[Union[Folder,File],None,None]:
+    #Folder->contained_folder/file structure dataframe
+    def get_dataframe(self):
+        pass
+    
+    def get_treemap(self):
+        dat_dict:dict[str,Union[Folder,File]]=dict(parent=[],child=[],name=[],type=[])
+        for path,o in self.walk():
+            dat_dict["parent"].append(path if path else "root")
+            dat_dict["name"].append(o.name)
+
+            dat_dict["child"].append(f"{path}/{o.name}" if path else o.name)
+            dat_dict["type"].append("folder" if isinstance(o,Folder) else "file")
+
+        return dat_dict
+    
+    def walk(self,files_only:bool=False,dirs_only:bool=False)->Generator[tuple[str,Union[Folder,File]],None,None]:
         if files_only and dirs_only:
             raise ValueError("Arguments files_only and dirs_only must be mutually exclusive")
         objects=self.base.content.values()
         folders_to_visit:list[Folder]=[]
         end=False
+        path=""
         for o in objects:
             if isinstance(o,File):
                 if not dirs_only:
-                    yield o
+                    yield (path,o)
             else:
                 folders_to_visit.append(o)
                 if not files_only:
-                    yield o
+                    yield (path,o)
         while not end:
             fold=folders_to_visit.pop()
+            path=f"{path}/{fold.name}" if path else fold.name
             for o in fold.content.values():
                 if isinstance(o,Folder):
                     folders_to_visit.append(o)
                     if not files_only:
-                        yield o
+                        yield (path,o)
                 elif isinstance(o,File) and not dirs_only:
-                    yield o
+                    yield (path,o)
             end = not folders_to_visit
             
             
