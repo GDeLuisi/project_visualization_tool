@@ -2,7 +2,7 @@ import pydriller as git
 import pydriller.metrics.process.contributors_count as contr
 import pydriller.metrics.process.history_complexity as history
 import pydriller.metrics.process.commits_count as comcnt
-from .data_typing import Author,CommitInfo,check_extension,Branch
+from .data_typing import Author,CommitInfo,check_extension,Branch,File,Folder,TreeStructure
 from time import strptime,mktime
 from typing import Optional,Generator,Union,Iterable,get_args
 from pathlib import Path
@@ -306,10 +306,20 @@ class RepoMiner():
         with self.repo_lock:
             return self.git_repo.ls_tree("-r","--name-only",cm).split("\n")
     
-    def get_dir_structure(self,commit:Optional[str]=None)->dict[str,dict]:
-        cm=commit if commit else "HEAD"
+    def get_dir_structure(self,commit:Optional[str]=None)->TreeStructure:
         with self.repo_lock:
-            pass
+            t=self.repo.commit(commit).tree
+            tree = TreeStructure(hash=t.hexsha,content=[])
+            for o in t.traverse():
+                obj=None
+                if isinstance(o,Blob):
+                    obj=File(name=o.name,size=o.size,hash_string=o.hexsha)
+                else:
+                    obj=Folder(name=o.name,content=dict(),hash_string=o.hexsha)
+                tree.build(path=o.path,new_obj=obj)
+        return tree
+            
+            
     def _calculate_DL(self,input_tuple:tuple[Author,list[CommitInfo]])->int:
         author,commit_list=input_tuple
         contribution=0

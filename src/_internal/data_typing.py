@@ -1,7 +1,7 @@
 from  dataclasses import dataclass,field
 from datetime import date
 from time import strptime
-from .exceptions import ObjectNotInTreeError
+from .exceptions import ObjectNotInTreeError,PathNotAvailableError
 from typing import Literal,get_args,Iterable,Optional,Union,Generator
 import json
 import pandas as pd
@@ -82,8 +82,7 @@ class Branch(DataFrameAdapter):
 @dataclass
 class File(DataFrameAdapter):
     name:str
-    size:str
-    path:str
+    size:int
     hash_string:str
     def __eq__(self, value):
         if not isinstance(value,File):
@@ -96,7 +95,6 @@ class Folder(DataFrameAdapter):
     name:str
     content:dict[str,Union[File,'Folder']]
     hash_string:str
-    path:str
     def __eq__(self, value):
         if not isinstance(value,Folder):
             raise TypeError(f"Cannot compare type Folder with {type(value)}")
@@ -104,54 +102,55 @@ class Folder(DataFrameAdapter):
     def __hash__(self):
         return self.hash_string.__hash__()
     
-    def get_dataframe(self):
-        df_dict:dict[str|int,list]=dict()
-        df_dict["folder"]=[self.base.name]
-        df_dict["hash_string"]=[self.base.hash_string]
-        df_dict["size"]=[pd.NA]
-        df_dict["file"]=[pd.NA]
-        df_dict["contained_folder"]
-        df=pd.DataFrame()
-        for k,v in self.content.items():
-            df_dict["hash_string"].append(v.hash_string)
-            if isinstance(v,Folder):
-                nd=v.get_dataframe()
-                df_dict["size"].append(pd.NA)
-                df_dict["folder"].append(k)
-                df_dict["file"].append(pd.NA)
-                df=pd.concat([df,nd])
-            else:
-                df_dict["folder"].append(self.name)
-                df_dict["file"].append(k)
-                df_dict["size"].append(v.size)
-        return pd.concat([df,pd.DataFrame(df_dict)])
+    # def get_dataframe(self):
+    #     df_dict:dict[str|int,list]=dict()
+    #     df_dict["folder"]=[self.base.name]
+    #     df_dict["hash_string"]=[self.base.hash_string]
+    #     df_dict["size"]=[pd.NA]
+    #     df_dict["file"]=[pd.NA]
+    #     df_dict["contained_folder"]
+    #     df=pd.DataFrame()
+    #     for k,v in self.content.items():
+    #         df_dict["hash_string"].append(v.hash_string)
+    #         if isinstance(v,Folder):
+    #             nd=v.get_dataframe()
+    #             df_dict["size"].append(pd.NA)
+    #             df_dict["folder"].append(k)
+    #             df_dict["file"].append(pd.NA)
+    #             df=pd.concat([df,nd])
+    #         else:
+    #             df_dict["folder"].append(self.name)
+    #             df_dict["file"].append(k)
+    #             df_dict["size"].append(v.size)
+    #     return pd.concat([df,pd.DataFrame(df_dict)])
 
-    def get_dataframe_dict(self,level:int)->dict[str]:
-        df_dict:dict[str|int,list]=dict()
-        df_dict["hash_string"]=list()
-        df_dict["size"]=list()
-        level+=1
-        df_dict[level]=list()
-        for k,v in self.content.items():
-            df_dict[level].append(k)
-            df_dict["hash_string"].append(v.hash_string)
-            if isinstance(v,Folder):
-                nd=v.get_dataframe_dict(level)
-                df_dict["hash_string"].extend(nd["hash_string"])
-                df_dict["size"].extend(nd["size"])
-                for k in nd.keys():
-                    if k not in df_dict:
-                        df_dict[k]=nd[k]
-            else:
-                df_dict["size"].append(v.size) 
-        return df_dict
+    # def get_dataframe_dict(self,level:int)->dict[str]:
+    #     df_dict:dict[str|int,list]=dict()
+    #     df_dict["hash_string"]=list()
+    #     df_dict["size"]=list()
+    #     level+=1
+    #     df_dict[level]=list()
+    #     for k,v in self.content.items():
+    #         df_dict[level].append(k)
+    #         df_dict["hash_string"].append(v.hash_string)
+    #         if isinstance(v,Folder):
+    #             nd=v.get_dataframe_dict(level)
+    #             df_dict["hash_string"].extend(nd["hash_string"])
+    #             df_dict["size"].extend(nd["size"])
+    #             for k in nd.keys():
+    #                 if k not in df_dict:
+    #                     df_dict[k]=nd[k]
+    #         else:
+    #             df_dict["size"].append(v.size) 
+    #     return df_dict
 
 class TreeStructure(DataFrameAdapter):
-    def __init__(self,content:Iterable[Union[Folder,File]],hash:str):
-        self.base:Folder=Folder(name="root",content=dict(),path="",hash_string=hash)
-        for c in content:
-            c.path=Path(self.base.name).joinpath(c.name).as_posix()
-            self.base.content[c.name]=c
+    def __init__(self,hash:str,content:Optional[Iterable[Union[Folder,File]]]=None):
+        self.base:Folder=Folder(name="",content=dict(),hash_string=hash)
+        self.hash=hash
+        if content:
+            for c in content:
+                self.base.content[c.name]=c
     #Folder->contained_folder/file structure dataframe
     def get_dataframe(self):
         pass
@@ -159,7 +158,7 @@ class TreeStructure(DataFrameAdapter):
     def get_treemap(self):
         dat_dict:dict[str,Union[Folder,File]]=dict(parent=[],child=[],name=[],type=[])
         for path,o in self.walk():
-            dat_dict["parent"].append(path if path else "root")
+            dat_dict["parent"].append(path if path else "")
             dat_dict["name"].append(o.name)
 
             dat_dict["child"].append(f"{path}/{o.name}" if path else o.name)
@@ -171,7 +170,8 @@ class TreeStructure(DataFrameAdapter):
         if files_only and dirs_only:
             raise ValueError("Arguments files_only and dirs_only must be mutually exclusive")
         objects=self.base.content.values()
-        folders_to_visit:list[Folder]=[]
+        folders_to_visit:list[tuple[str,Folder]]=[]
+        
         end=False
         path=""
         for o in objects:
@@ -179,15 +179,15 @@ class TreeStructure(DataFrameAdapter):
                 if not dirs_only:
                     yield (path,o)
             else:
-                folders_to_visit.append(o)
+                folders_to_visit.append((path,o))
                 if not files_only:
                     yield (path,o)
         while not end:
-            fold=folders_to_visit.pop()
+            path,fold=folders_to_visit.pop()
             path=f"{path}/{fold.name}" if path else fold.name
             for o in fold.content.values():
                 if isinstance(o,Folder):
-                    folders_to_visit.append(o)
+                    folders_to_visit.append((path,o))
                     if not files_only:
                         yield (path,o)
                 elif isinstance(o,File) and not dirs_only:
@@ -227,7 +227,7 @@ class TreeStructure(DataFrameAdapter):
                 folder_only=True
             else:
                 raise TypeError("The only accepted type values are 'file' and 'folder'")
-        for o in self.walk(file_only,folder_only):
+        for path,o in self.walk(file_only,folder_only):
             if o.name==name:
                 yield o
                 
@@ -244,5 +244,36 @@ class TreeStructure(DataFrameAdapter):
                 ret_object=obj.content[p]
             else:
                 raise ObjectNotInTreeError(f"Path {path} is not part of this tree")
-            
         return ret_object
+    
+    def build(self,path:str,new_obj:Union[File,Folder],mkdir:bool=True):
+        if not isinstance(new_obj,(File,Folder)):
+            raise TypeError("Object must be of type or subtype of File or Folder")
+        if not path:
+            raise ValueError("Nonetype or empty string are not amissible paths")
+        parts=Path(path).parts
+        to_explore:list[Folder]=[self.base]
+        num_parts=len(parts)
+        last_folder=None
+        for i,p in enumerate(parts,1):
+            obj=to_explore.pop()
+            last_folder=obj
+            if p in obj.content:
+                if isinstance(obj.content[p],Folder) and not num_parts==i:
+                    to_explore.append(obj.content[p])
+                else:
+                    raise PathNotAvailableError("Either path is not a sequence of folder or path already used")
+                
+            else:
+                if mkdir and not num_parts==i:
+                    f=Folder(name=p,content=dict(),hash_string="")
+                    obj.content[p]=f
+                    to_explore.append(f)
+                elif num_parts==i:
+                    if not last_folder:
+                        self.base.content[new_obj.name]=new_obj
+                        return
+                    last_folder.content[p]=new_obj
+                else:
+                    raise ObjectNotInTreeError("Path not reachable")
+                    

@@ -157,3 +157,15 @@ def populate_author_graph(data,value):
         fig=px.bar(count_df,x="commit_count",y="author_name",labels=common_labels,title="Author commits effort",color="author_name")
         return fig,"auto",no_update,no_update,no_update,no_update
         
+# @callback(
+#         Output("test","figure"),
+#         Input("repo_path","data"),
+# )
+# def populate_treemap(data):
+#         rp=RepoMiner(data)
+#         tree = rp.get_dir_structure()
+#         df=tree.get_treemap()
+#         fig=px.treemap(parents=df["parent"],names=df["name"],ids=df["child"],color_discrete_map={'(?)':'lightgrey', 'file':'gold', 'folder':'darkblue'},color=df["type"])
+        
+#         # fig=px.treemap(parents = ["", "Eve", "Eve", "Seth", "Seth", "Eve", "Eve", "Awan", "Eve","Noam"],names = ["Eve","Cain", "Seth", "Enos/Noam", "Noam", "Abel", "Awan", "Enoch", "Azura","Aqua"],)
+#         return fig

@@ -27,18 +27,14 @@ layout = dbc.Container([
 
 @callback(
         Output("dir_treemap","figure"),
-        Input("commit_df_cache","data")
+        Input("repo_path","data")
 )
-def populate_treemap(cache):
+def populate_treemap(data):
         # df=pd.DataFrame(cache)
-        fo=Folder("folder1",dict(file1=File("file1","10b",Path("folder1").joinpath("file1").as_posix(),"asdasdasd"),folder2=Folder("folder2",dict(),"kljfjf",Path("folder1").joinpath("folder2").as_posix())),"kljklfjlfkj",path=Path("folder1").as_posix())
-        fi=File("file2",size="12b",hash_string="dsfdgds",path=Path("file2").as_posix())
-        tree = TreeStructure([fo,fi],"sajdhasjdhk")
+        rp=RepoMiner(data)
+        tree = rp.get_dir_structure()
         df=tree.get_treemap()
-        # df.info()
-        # print(df.head())
         fig=px.treemap(parents=df["parent"],names=df["name"],ids=df["child"],color_discrete_map={'(?)':'lightgrey', 'file':'gold', 'folder':'darkblue'},color=df["type"])
         
-
         # fig=px.treemap(parents = ["", "Eve", "Eve", "Seth", "Seth", "Eve", "Eve", "Awan", "Eve","Noam"],names = ["Eve","Cain", "Seth", "Enos/Noam", "Noam", "Abel", "Awan", "Enoch", "Azura","Aqua"],)
         return fig

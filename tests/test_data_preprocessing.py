@@ -4,7 +4,7 @@ from time import strptime,struct_time,mktime,gmtime,time
 from src._internal import make_author_dataframe,make_commit_dataframe
 from src._internal.data_preprocessing import getMaxMinMarks,unixTimeMillis,unixToDatetime,getMarks
 from datetime import date
-from src._internal.exceptions import ObjectNotInTreeError
+from src._internal.exceptions import ObjectNotInTreeError,PathNotAvailableError
 import datetime as dt
 import pandas as pd
 from utility import logs as log
@@ -20,9 +20,9 @@ commits=[CommitInfo(commit_hash='700308b91a49af60d815f820287f330421036800', abbr
 
 @fixture
 def tree():
-    fo=Folder("folder1",dict(file1=File("file1","10b",Path("folder1").joinpath("file1").as_posix(),"asdasdasd"),folder2=Folder("folder2",dict(),"kljfjf",Path("folder1").joinpath("folder2").as_posix())),"kljklfjlfkj",path=Path("folder1").as_posix())
-    fi=File("file2",size="12b",hash_string="dsfdgds",path=Path("file2").as_posix())
-    return TreeStructure([fo,fi],"sajdhasjdhk")
+    fo=Folder("folder1",dict(file1=File("file1",10,"asdasdasd"),folder2=Folder("folder2",dict(),"kljfjf")),"kljklfjlfkj")
+    fi=File("file2",size=12,hash_string="dsfdgds")
+    return TreeStructure("sajdhasjdhk",[fo,fi])
 
 
 def test_make_commits_dataframe():
@@ -53,10 +53,10 @@ def test_unixToDatetime():
     logger.debug(unixToDatetime(-1))
     
 tree_walk_args=[
-    ("file2",False,False,[File("file2",size="12b",hash_string="dsfdgds",path="")]),
-    ("folder1",False,False,[File("file1","10b","asdasdasd","asdasdasd"),Folder("folder2",dict(),"kljfjf","")]),
-    ("folder1",False,True,[Folder("folder2",dict(),"kljfjf","")]),
-    ("folder1",True,False,[File("file1","10b","","asdasdasd")]),
+    ("file2",False,False,[File("file2",size=12,hash_string="dsfdgds")]),
+    ("folder1",False,False,[File("file1",10,"asdasdasd"),Folder("folder2",dict(),"kljfjf")]),
+    ("folder1",False,True,[Folder("folder2",dict(),"kljfjf")]),
+    ("folder1",True,False,[File("file1",10,"asdasdasd")]),
     ("file1",False,False,None),
     ("file1",True,True,None),
     ("file3",False,False,None),
@@ -70,24 +70,24 @@ def test_walk_folder(tree,name,fo,do,expected):
             list(tree.walk_folder(name,fo,do))
 
 tree_walk=[
-    (False,False,[File("file1","10b",Path("folder1").joinpath("file1").as_posix(),"asdasdasd"),File("file2",size="12b",hash_string="dsfdgds",path=""),Folder("folder1",dict(file1=File("file1","10b",Path("folder1").joinpath("file1").as_posix(),"asdasdasd"),folder2=Folder("folder2",dict(),"kljfjf",path=Path("folder1").joinpath("folder2").as_posix())),"kljklfjlfkj",path=Path("folder1").as_posix()),Folder("folder2",dict(),"kljfjf",path=Path("folder1").joinpath("folder2").as_posix())]),
-    (False,True,[Folder("folder2",dict(),"kljfjf",path=""),Folder("folder1",dict(file1=File("file1","10b","","asdasdasd"),folder2=Folder("folder2",dict(),"kljfjf",path="")),"kljklfjlfkj",path="")]),
-    (True,False,[File("file2",size="12b",hash_string="dsfdgds",path=""),File("file1","10b","","asdasdasd")]),
+    (False,False,[File("file1",10,"asdasdasd"),File("file2",size=12,hash_string="dsfdgds"),Folder("folder1",dict(file1=File("file1",10,"asdasdasd"),folder2=Folder("folder2",dict(),"kljfjf")),"kljklfjlfkj"),Folder("folder2",dict(),"kljfjf")]),
+    (False,True,[Folder("folder2",dict(),"kljfjf"),Folder("folder1",dict(file1=File("file1",10,"asdasdasd"),folder2=Folder("folder2",dict(),"kljfjf")),"kljklfjlfkj")]),
+    (True,False,[File("file2",size=12,hash_string="dsfdgds"),File("file1",10,"asdasdasd")]),
     (True,True,None),
 ]
 @mark.parametrize("fo,do,expected",tree_walk)
 def test_walk(tree,fo,do,expected):
     if expected:
-        assert set(list(tree.walk(fo,do)))==set(expected)
+        assert set(list([o for p,o in tree.walk(fo,do)]))==set(expected)
     else:
         with raises((ObjectNotInTreeError,ValueError,TypeError)):
-            list(tree.walk(fo,do))
+            list([o for p,o in tree.walk(fo,do)])
 tree_find_args=[
     ("file2","folder",[]),
-    ("folder1","folder",[Folder("folder1",dict(file1=File("file1","10b","","asdasdasd"),folder2=Folder("folder2",dict(),"kljfjf",path="")),"kljklfjlfkj",path="")]),
-    ("file1","file",[File("file1","10b","","asdasdasd")]),
-    ("file2","file",[File("file2",size="12b",hash_string="dsfdgds",path="")]),
-    ("file1",None,[File("file1","10b","","asdasdasd")]),
+    ("folder1","folder",[Folder("folder1",dict(file1=File("file1",10,"asdasdasd"),folder2=Folder("folder2",dict(),"kljfjf")),"kljklfjlfkj")]),
+    ("file1","file",[File("file1",10,"asdasdasd")]),
+    ("file2","file",[File("file2",size=12,hash_string="dsfdgds")]),
+    ("file1",None,[File("file1",10,"asdasdasd")]),
     ("file1","d",None),
     ("file1","folder",[]),
     
@@ -101,14 +101,43 @@ def test_find(tree,name,tp,expected):
             list(tree.find(name,tp))
 
 def test_get_path(tree):
-    for o in tree.walk_folder("folder1"):
+    for p,o in tree.walk():
         if o.name=="folder2":
-            assert o.path==Path("folder1").joinpath("folder2").as_posix()
+            assert p=="folder1"
             
-@mark.parametrize("path,expected",[("folder1/folder2",Folder("folder2",dict(),"kljfjf",path="folder1/folder2")),("file2",File("file2",size="12b",hash_string="dsfdgds",path="")),("folder1/file2",None),("folder2",None)])
+@mark.parametrize("path,expected",[("folder1/folder2",Folder("folder2",dict(),"kljfjf")),("file2",File("file2",size=12,hash_string="dsfdgds")),("folder1/file2",None),("folder2",None)])
 def test_get(tree,path,expected):
     if expected:
         tree.get(path)==expected
     else:
         with raises(ObjectNotInTreeError):
             tree.get(path)
+
+build_args=[
+    ("a/b/c",File("c",0,"asd"),True,File("c",0,"asd")),
+    ("a/b/c",File("c",0,"asd"),False,None),
+    ("a/b/c",Folder("c",dict(),"asd"),True,Folder("c",dict(),"asd")),
+    ("a/b/c",Folder("c",dict(),"asd"),False,None),
+    ("c",Folder("c",dict(),"asd"),False,Folder("c",dict(),"asd")),
+    ("c",Folder("c",dict(c=File("c",0,"asd")),"asd"),False,Folder("c",dict(c=File("c",0,"asd")),"asd")),
+    ("",Folder("c",dict(),"asd"),False,None),
+    ("a/b/c",Author("c","d",["asd"]),False,None),
+    ("a/b/c",None,False,None),
+]
+@mark.parametrize("path,obj,mkdir,expected",build_args)
+def test_build_tree(path,obj,mkdir,expected):
+    if expected:
+        tree=TreeStructure(hash="asjd")
+        tree.build(path,obj,mkdir)
+        assert next(tree.find(expected.name))==expected
+    else:
+        with raises((ValueError,ObjectNotInTreeError,TypeError)):
+            tree=TreeStructure(hash="asjd")
+            tree.build(path,obj,mkdir)
+
+def test_insertion_build():
+    tree =TreeStructure(hash="asjd",content=[Folder("c",dict(d=File("d",0,"aswd"),a=Folder("a",dict(),"sdhf")),"asd")])
+    with raises(PathNotAvailableError):
+        tree.build("c/d",File("d",0,"sdf"))
+    with raises(PathNotAvailableError): 
+        tree.build("c/a",Folder("a",0,"sdf"))
