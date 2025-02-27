@@ -134,10 +134,44 @@ def test_build_tree(path,obj,mkdir,expected):
         with raises((ValueError,ObjectNotInTreeError,TypeError)):
             tree=TreeStructure(hash="asjd")
             tree.build(path,obj,mkdir)
-
+            
+static_build_args=[
+    ("hash","a/b/c",File("c",0,"asd"),True,File("c",0,"asd")),
+    ("hash","a/b/c",File("c",0,"asd"),False,None),
+    ("hash","a/b/c",Folder("c",dict(),"asd"),True,Folder("c",dict(),"asd")),
+    ("hash","a/b/c",Folder("c",dict(),"asd"),False,None),
+    ("hash","c",Folder("c",dict(),"asd"),False,Folder("c",dict(),"asd")),
+    ("hash","c",Folder("c",dict(c=File("c",0,"asd")),"asd"),False,Folder("c",dict(c=File("c",0,"asd")),"asd")),
+    ("hash","",Folder("c",dict(),"asd"),False,None),
+    ("hash","a/b/c",Author("c","d",["asd"]),False,None),
+    ("hash","a/b/c",None,False,None),
+]
+@mark.parametrize("hash,path,obj,mkdir,expected",static_build_args)
+def test_static_build_tree(hash,path,obj,mkdir,expected):
+    if expected:
+        tree=TreeStructure.build_tree(hash,path,obj,mkdir)
+        assert next(tree.find(expected.name))==expected
+    else:
+        with raises((ValueError,ObjectNotInTreeError,TypeError)):
+            tree=TreeStructure.build_tree(hash,path,obj,mkdir)
+            
 def test_insertion_build():
     tree =TreeStructure(hash="asjd",content=[Folder("c",dict(d=File("d",0,"aswd"),a=Folder("a",dict(),"sdhf")),"asd")])
     with raises(PathNotAvailableError):
         tree.build("c/d",File("d",0,"sdf"))
     with raises(PathNotAvailableError): 
         tree.build("c/a",Folder("a",0,"sdf"))
+
+def test_dataframes(tree):
+    df1=tree.get_dataframe().sort_values("name").reset_index(drop=True)
+    df2=tree.get("file2").get_dataframe()
+    df3=tree.get("folder1").get_dataframe()
+    df=pd.DataFrame(dict(name=[tree.base.name],size=[tree.base.get_size()],hash_string=[tree.base.hash_string]))
+    df4=pd.concat([df,df2,df3]).sort_values("name").reset_index(drop=True)
+    df1.sort_index(axis=1,inplace=True)
+    df4.sort_index(axis=1,inplace=True)
+    logger.debug(df1.head())
+    logger.debug(df4.head())
+    df1.info()
+    df4.info()
+    assert df1.equals(df4)

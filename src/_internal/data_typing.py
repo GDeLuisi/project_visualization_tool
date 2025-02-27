@@ -32,7 +32,6 @@ class DataFrameAdapter():
         for k,v in var_dict.items():
             var_dict[k]=[v]
         df=pd.DataFrame(var_dict)
-        df.reset_index(inplace=True)
         return df
 # {'commit': '1c85669eb58fc986d43eb7c878e03cb58fb4883d', 'abbreviated_commit': '1c85669', 'tree': 'c6a6edfde2001a68e123c724625faf7599f82371', 'abbreviated_tree': 'c6a6edf', 'parent': 'efe6fba7d02ad06bec603b57f2e5115b7ccd31d8', 'abbreviated_parent': 'efe6fba', 'refs': 'HEAD -> development, origin/development', 'encoding': '', 'subject': 'optimized truck factor function', 'sanitized_subject_line': 'optimized-truck-factor-function', 'body': '', 'commit_notes': '', 'verification_flag': 'N', 'signer': '', 'signer_key': '', 'author': {'name': 'Gerardo De Luisi', 'email': 'deluisigerardo@gmail.com', 'date': 'Sat, 8 Feb 2025 14:21:03 +0100'}, 'commiter': {'name': 'Gerardo De Luisi', 'email': 'deluisigerardo@gmail.com', 'date': 'Sat, 8 Feb 2025 14:21:03 +0100'}}
 @dataclass
@@ -102,47 +101,21 @@ class Folder(DataFrameAdapter):
     def __hash__(self):
         return self.hash_string.__hash__()
     
-    # def get_dataframe(self):
-    #     df_dict:dict[str|int,list]=dict()
-    #     df_dict["folder"]=[self.base.name]
-    #     df_dict["hash_string"]=[self.base.hash_string]
-    #     df_dict["size"]=[pd.NA]
-    #     df_dict["file"]=[pd.NA]
-    #     df_dict["contained_folder"]
-    #     df=pd.DataFrame()
-    #     for k,v in self.content.items():
-    #         df_dict["hash_string"].append(v.hash_string)
-    #         if isinstance(v,Folder):
-    #             nd=v.get_dataframe()
-    #             df_dict["size"].append(pd.NA)
-    #             df_dict["folder"].append(k)
-    #             df_dict["file"].append(pd.NA)
-    #             df=pd.concat([df,nd])
-    #         else:
-    #             df_dict["folder"].append(self.name)
-    #             df_dict["file"].append(k)
-    #             df_dict["size"].append(v.size)
-    #     return pd.concat([df,pd.DataFrame(df_dict)])
-
-    # def get_dataframe_dict(self,level:int)->dict[str]:
-    #     df_dict:dict[str|int,list]=dict()
-    #     df_dict["hash_string"]=list()
-    #     df_dict["size"]=list()
-    #     level+=1
-    #     df_dict[level]=list()
-    #     for k,v in self.content.items():
-    #         df_dict[level].append(k)
-    #         df_dict["hash_string"].append(v.hash_string)
-    #         if isinstance(v,Folder):
-    #             nd=v.get_dataframe_dict(level)
-    #             df_dict["hash_string"].extend(nd["hash_string"])
-    #             df_dict["size"].extend(nd["size"])
-    #             for k in nd.keys():
-    #                 if k not in df_dict:
-    #                     df_dict[k]=nd[k]
-    #         else:
-    #             df_dict["size"].append(v.size) 
-    #     return df_dict
+    def get_size(self)->int:
+        tot_size=0
+        for k,v in self.content.items():
+            if isinstance(v,File):
+                tot_size+=v.size
+            else:
+                tot_size+=v.get_size()
+        return tot_size
+    
+    def get_dataframe(self):
+        size=self.get_size()
+        df=pd.DataFrame(dict(size=[size],name=[self.name],hash_string=[self.hash_string]))
+        for v in self.content.values():
+            df=pd.concat([df,v.get_dataframe()],ignore_index=True).reset_index(drop=True)
+        return df
 
 class TreeStructure(DataFrameAdapter):
     def __init__(self,hash:str,content:Optional[Iterable[Union[Folder,File]]]=None):
@@ -153,7 +126,7 @@ class TreeStructure(DataFrameAdapter):
                 self.base.content[c.name]=c
     #Folder->contained_folder/file structure dataframe
     def get_dataframe(self):
-        pass
+        return self.base.get_dataframe()
     
     def get_treemap(self):
         dat_dict:dict[str,Union[Folder,File]]=dict(parent=[],child=[],name=[],type=[])
@@ -276,4 +249,37 @@ class TreeStructure(DataFrameAdapter):
                     last_folder.content[p]=new_obj
                 else:
                     raise ObjectNotInTreeError("Path not reachable")
-                    
+                
+    @staticmethod
+    def build_tree(hash:str,path:str,new_obj:Union[File,Folder],mkdir:bool=True)->'TreeStructure':
+        tree = TreeStructure(hash=hash)
+        if not isinstance(new_obj,(File,Folder)):
+            raise TypeError("Object must be of type or subtype of File or Folder")
+        if not path:
+            raise ValueError("Nonetype or empty string are not amissible paths")
+        parts=Path(path).parts
+        to_explore:list[Folder]=[tree.base]
+        num_parts=len(parts)
+        last_folder=None
+        for i,p in enumerate(parts,1):
+            obj=to_explore.pop()
+            last_folder=obj
+            if p in obj.content:
+                if isinstance(obj.content[p],Folder) and not num_parts==i:
+                    to_explore.append(obj.content[p])
+                else:
+                    raise PathNotAvailableError("Either path is not a sequence of folder or path already used")
+                
+            else:
+                if mkdir and not num_parts==i:
+                    f=Folder(name=p,content=dict(),hash_string="")
+                    obj.content[p]=f
+                    to_explore.append(f)
+                elif num_parts==i:
+                    if not last_folder:
+                        tree.base.content[new_obj.name]=new_obj
+                        return
+                    last_folder.content[p]=new_obj
+                else:
+                    raise ObjectNotInTreeError("Path not reachable")
+        return tree
