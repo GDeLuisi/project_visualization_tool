@@ -2,7 +2,7 @@ from _internal import git_mining as gm
 from pathlib import Path
 import utility.logs as log
 import logging
-from git.exc import GitCommandError
+from git.exc import GitCommandError,BadName
 from pytest import fixture,mark,raises
 from pydriller import Git
 from _internal.data_typing import Author
@@ -52,7 +52,9 @@ def test_rev_list(repo_miner,no_merges,max_count,count_only,start_date,end_date,
         with raises(GitCommandError):
             repo_miner._rev_list(only_branch=only_branch,max_count=max_count,no_merges=no_merges,count_only=count_only,from_date=start_date,to_date=end_date,from_commit=start_commit,to_commit=end_commit)
 def test_get_branches(repo_miner):
-    assert set((b.name for b in repo_miner.get_branches()))=={"main","development","dir_structure"}
+
+    assert set((b.name for b in repo_miner.get_branches()))=={h.name for h in repo_miner.repo.branches}
+
 
 
 def test_get_author_in_range(repo_miner):
@@ -195,3 +197,12 @@ def test_calculate_truck_factor(repo_miner,paths,suffixes,date_range):
     tf=repo_miner.get_truck_factor(paths,suffixes_of_interest=suffixes,date_range=date_range)
     # logger.debug(list(map(lambda k: (k[0],len(k[1])),tf[1].items())))
     assert tf[0]==1
+
+def test_get_dir_structure(repo_miner):
+    tree = repo_miner.get_dir_structure()
+    assert next(tree.find("dir_info.py","file")).name == "dir_info.py" 
+    repo_miner.get_dir_structure("development")
+    repo_miner.get_dir_structure("main")
+    repo_miner.get_dir_structure("dir_structure")
+    with raises(BadName):
+        repo_miner.get_dir_structure("asdjhgasdhgajsdhg")
