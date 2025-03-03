@@ -199,6 +199,8 @@ def test_calculate_truck_factor(repo_miner,paths,suffixes,date_range):
 def test_get_dir_structure(repo_miner):
     tree = repo_miner.get_dir_structure()
     assert next(tree.find("dir_info.py","file")).name == "dir_info.py" 
-    
+    repo_miner.get_dir_structure("development")
+    repo_miner.get_dir_structure("main")
+    repo_miner.get_dir_structure("dir_structure")
     with raises(BadName):
         repo_miner.get_dir_structure("asdjhgasdhgajsdhg")

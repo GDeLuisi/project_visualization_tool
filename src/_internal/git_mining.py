@@ -2,7 +2,7 @@ import pydriller as git
 import pydriller.metrics.process.contributors_count as contr
 import pydriller.metrics.process.history_complexity as history
 import pydriller.metrics.process.commits_count as comcnt
-from .data_typing import Author,CommitInfo,check_extension,Branch,File,Folder,TreeStructure
+from .data_typing import Author,CommitInfo,check_extension,Branch,File,Folder,TreeStructure,RetrieveStrategy
 from time import strptime,mktime
 from typing import Optional,Generator,Union,Iterable,get_args
 from pathlib import Path
@@ -19,6 +19,21 @@ from functools import cached_property
 import json
 logger=getLogger("Repo Miner")
 
+class GitRetrivialStrategy(RetrieveStrategy):
+    def __init__(self,repo_path:Union[Path,str]):
+        self.repo_path=repo_path
+        if isinstance(repo_path,Path):
+            self.repo_path=repo_path.as_posix()
+        self.git=Git(self.repo_path)
+    def get_source(self, id:str)->list[str]:
+        try:
+            if self.git.cat_file("-t",id) != "blob":
+                raise TypeError(f"Hexsha {id} in not a blob")
+        except exc.GitCommandError:
+            raise FileNotFoundError("Couldn't retrieve the object")
+        return re.split(string=self.git.cat_file("-p",id),pattern=r"\r\n|\r|\n")
+        
+
 class RepoMiner():
     COMMIT_PRETTY_FORMAT='--pretty=format:{"commit": "%H","abbreviated_commit": "%h","tree": "%T","abbreviated_tree": "%t","parent": "%P","abbreviated_parent": "%p","refs": "%D","encoding": "%e","subject": "%s","sanitized_subject_line": "%f","commit_notes": "%N","verification_flag": "%G?","signer": "%GS","signer_key": "%GK","author": {"name": "%aN","email": "%aE","date": "%aD"},"commiter": {"name": "%cN","email": "%cE","date": "%cI"}}|'
     def __init__(self,repo_path:Union[Path,str]):
@@ -28,6 +43,8 @@ class RepoMiner():
         self.repo_lock=Lock()
         self.repo=Repo(self.repo_path)
         self.git_repo=self.repo.git
+        self.tree=None
+        self.tree=self.get_dir_structure()
         # self.update()
         #"--no-merges","--no-commit-header",f"--max-count={max_count}",'--pretty=format:{"commit": "%H","abbreviated_commit": "%h","tree": "%T","abbreviated_tree": "%t","parent": "%P","abbreviated_parent": "%p","refs": "%D","encoding": "%e","subject": "%s","sanitized_subject_line": "%f","body": "%b","commit_notes": "%N","verification_flag": "%G?","signer": "%GS","signer_key": "%GK","author": {"name": "%aN","email": "%aE","date": "%aD"},"commiter": {"name": "%cN","email": "%cE","date": "%cD"}}',last_revision),pattern=r'\r\n|\n|\r'
     def _load_commits_date_range(self,start_date:Optional[date]=None,end_date:Optional[date]=None)->list[str]:
@@ -63,44 +80,6 @@ class RepoMiner():
         else:
             commit_range=commit_range+f"..{deafult}"
         return commit_range
-    
-    # def _rev_list(self,arglist:list[str])->Generator[list[CommitInfo],None,None]:
-    #     finished=False
-    #     while not finished:
-    #         logs=re.split(string=self.git_repo.rev_list(arglist),pattern=r'\r\n|\n|\r')
-    #         logger.debug("Loaded commits",extra={"commits":logs})
-    #         if not logs[0] or not logs:
-    #             logger.debug("Finished Loading")
-    #             finished=True
-    #             return []
-    #         logs=[json.loads(log) for log in logs]
-    #         commit_list:list[CommitInfo]=[]
-    #         last_revision=logs[0]["commit"].split(" ")[0]
-    #         for log in logs:
-    #             commit_info=CommitInfo(
-    #                                                 author_email=log["author"]["email"],
-    #                                                 author_name=log["author"]["name"],
-    #                                                 commit_hash=log["commit"],
-    #                                                 abbr_hash=log["abbreviated_commit"],
-    #                                                 tree=log["tree"],
-    #                                                 refs=log["refs"],
-    #                                                 subject=log["subject"],
-    #                                                 date=date.fromtimestamp(mktime(strptime(log["author"]["date"],"%a, %d %b %Y %H:%M:%S %z"))),
-    #                                                 parent=log["parent"],
-    #                                                 files=[])
-    #             commit_list.append(commit_info)
-    #         next_revision=commit_info.parent.strip().split(" ")[0]
-    #         yield commit_list
-    #         for i,arg in enumerate(arglist):
-    #             if "..." in arg:
-    #                 start,pr_end=arg.split("...")
-    #                 next_revision=f"{start}...{next_revision}"
-    #                 arglist.pop(i)
-    #                 arglist.insert(i,next_revision)
-    #             elif last_revision == arg:
-    #                 arglist.pop(i)
-    #                 arglist.insert(i,next_revision)
-    #         finished = not last_revision or next_revision==last_revision
     
     def _rev_list(self,only_branch:Optional[str]=None,max_count:Optional[int]=None,no_merges:bool=True,count_only:bool=False,from_commit:Optional[str]=None,to_commit:Optional[str]=None,from_date:Optional[date]=None,to_date:Optional[date]=None)->list[str]:
         arglist=[]
@@ -203,7 +182,6 @@ class RepoMiner():
             follow_files=True
         logger.debug("Loading logs with args",extra={"git_args":arglist})
         return self._log(arglist,follow_files)
-    
     def get_branches(self,deep:bool=True)->Generator[Branch,None,None]:
             if deep:
                     for head in self.repo.branches:
@@ -274,12 +252,16 @@ class RepoMiner():
             raise ValueError("Only one between name and email are required")
         val=name if name else email
         return self.lazy_load_commits(author=val)
+    
     def get_tracked_files(self)->list[str]:
         with self.repo_lock:
             files=re.split(string=self.git_repo.ls_files(),pattern=r'\r\n|\n|\r')
         return files
 
     def get_source_code(self,file:Union[str,Path],commit:Optional[str]=None)->list[str]:
+        '''
+        DEPRECATED
+        '''
         text=[]
         file_path=file
         if isinstance(file,str):
@@ -307,6 +289,8 @@ class RepoMiner():
             return self.git_repo.ls_tree("-r","--name-only",cm).split("\n")
     
     def get_dir_structure(self,commit:Optional[str]=None)->TreeStructure:
+        if not commit and self.tree:
+            return self.tree
         with self.repo_lock:
             t=self.repo.commit(commit).tree
             tree = TreeStructure(hash=t.hexsha,content=[])
@@ -319,7 +303,18 @@ class RepoMiner():
                 tree.build(path=o.path,new_obj=obj)
         return tree
             
-            
+    def get_source(self, id:str)->list[str]:
+        try:
+            if self.git_repo.cat_file("-t",id) != "blob":
+                raise TypeError(f"Hexsha {id} in not a blob")
+        except exc.GitCommandError:
+            raise FileNotFoundError("Couldn't retrieve the object")
+        return re.split(string=self.git_repo.cat_file("-p",id),pattern=r"\r\n|\r|\n")
+    
+    def get_file_authors(self):
+        pass
+    
+    #TODO restructure truck factor calculation methods --raw, --numstat, --shortstat, --dirstat, --summary, --name-only, --name-status, --check
     def _calculate_DL(self,input_tuple:tuple[Author,list[CommitInfo]])->int:
         author,commit_list=input_tuple
         contribution=0

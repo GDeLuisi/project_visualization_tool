@@ -17,17 +17,14 @@ dash.register_page(__name__,"/")
 common_labels={"date":"Date","commit_count":"Number of commits","author_email":"Author's email","author_name":"Author's name","dow":"Day of the week"}
 
 layout = dbc.Container([
-        dcc.Store(id="branch_cache"),
+        dcc.Store(id="branch_cache",storage_type="session"),
         dcc.Loading(fullscreen=True,children=[
-                dcc.Store(id="commit_df_cache"),
+                dcc.Store(id="commit_df_cache",storage_type="session"),
                 ]),
         dbc.Row(id="choices",children=[
                 dbc.Col(
                         children=[dbc.Button(id="reload_button",children="Refresh Data")],
                         width=1),
-                dbc.Col(
-                        children=[dbc.Label(["Branch Picker"]),dcc.Dropdown(id="branch_picker",searchable=True,clearable=True,placeholder="Branch name")],
-                        width=5),
                 dbc.Col(
                         children=[dbc.Label(["Display mode picker"]),dcc.Dropdown(id="x_picker",value="dow",options=[{"label":"Day of week","value":"dow"},{"label":"Per date","value":"date"}]),],
                         width=5),
@@ -50,7 +47,7 @@ layout = dbc.Container([
         dbc.Row([
                 dcc.Slider(id="date_slider",marks=None, tooltip={"placement": "bottom", "always_visible": True,"transform": "timestampToUTC"},),
                 ]),
-        dcc.Graph("test")
+        # html.Div(id="test-div")
 ])
 
 # @callback(
@@ -157,15 +154,3 @@ def populate_author_graph(data,value):
         fig=px.bar(count_df,x="commit_count",y="author_name",labels=common_labels,title="Author commits effort",color="author_name")
         return fig,"auto",no_update,no_update,no_update,no_update
         
-# @callback(
-#         Output("test","figure"),
-#         Input("repo_path","data"),
-# )
-# def populate_treemap(data):
-#         rp=RepoMiner(data)
-#         tree = rp.get_dir_structure()
-#         df=tree.get_treemap()
-#         fig=px.treemap(parents=df["parent"],names=df["name"],ids=df["child"],color_discrete_map={'(?)':'lightgrey', 'file':'gold', 'folder':'darkblue'},color=df["type"])
-        
-#         # fig=px.treemap(parents = ["", "Eve", "Eve", "Seth", "Seth", "Eve", "Eve", "Awan", "Eve","Noam"],names = ["Eve","Cain", "Seth", "Enos/Noam", "Noam", "Abel", "Awan", "Enoch", "Azura","Aqua"],)
-#         return fig

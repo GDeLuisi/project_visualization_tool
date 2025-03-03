@@ -2,7 +2,7 @@ from  dataclasses import dataclass,field
 from datetime import date
 from time import strptime
 from .exceptions import ObjectNotInTreeError,PathNotAvailableError
-from typing import Literal,get_args,Iterable,Optional,Union,Generator
+from typing import Literal,get_args,Iterable,Optional,Union,Generator,Callable
 import json
 import pandas as pd
 from pathlib import Path
@@ -24,6 +24,10 @@ def check_extension(ext:str,additional_extensions:Iterable[str]=[])->tuple[bool,
         return ext in additional_extensions,ext
     return True,ext
 
+class RetrieveStrategy():
+    def get_source(self,id:str)->list[str]:
+        pass
+    
 class DataFrameAdapter():
     def __init__(self):
         pass
@@ -83,6 +87,8 @@ class File(DataFrameAdapter):
     name:str
     size:int
     hash_string:str
+    def get_source(self,ret_strategy:RetrieveStrategy)->list[str]:
+        return ret_strategy.get_source(self.hash_string)
     def __eq__(self, value):
         if not isinstance(value,File):
             raise TypeError(f"Cannot compare type File with {type(value)}")
@@ -129,11 +135,11 @@ class TreeStructure(DataFrameAdapter):
         return self.base.get_dataframe()
     
     def get_treemap(self):
-        dat_dict:dict[str,Union[Folder,File]]=dict(parent=[],child=[],name=[],type=[])
+        dat_dict:dict[str,Union[Folder,File]]=dict(parent=[],child=[],name=[],type=[],id=[])
         for path,o in self.walk():
             dat_dict["parent"].append(path if path else "")
             dat_dict["name"].append(o.name)
-
+            dat_dict["id"].append(o.hash_string)
             dat_dict["child"].append(f"{path}/{o.name}" if path else o.name)
             dat_dict["type"].append("folder" if isinstance(o,Folder) else "file")
 
