@@ -52,7 +52,9 @@ def test_rev_list(repo_miner,no_merges,max_count,count_only,start_date,end_date,
         with raises(GitCommandError):
             repo_miner._rev_list(only_branch=only_branch,max_count=max_count,no_merges=no_merges,count_only=count_only,from_date=start_date,to_date=end_date,from_commit=start_commit,to_commit=end_commit)
 def test_get_branches(repo_miner):
+
     assert set((b.name for b in repo_miner.get_branches()))=={h.name for h in repo_miner.repo.branches}
+
 
 
 def test_get_author_in_range(repo_miner):
