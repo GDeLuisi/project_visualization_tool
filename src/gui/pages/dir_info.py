@@ -1,3 +1,4 @@
+import dash
 from dash import dcc,callback,Input,Output,no_update,set_props,State,clientside_callback,Patch,ctx
 from src._internal import RepoMiner,make_commit_dataframe,prune_common_commits,getMaxMinMarks,unixTimeMillis,unixToDatetime
 import dash.html as html
