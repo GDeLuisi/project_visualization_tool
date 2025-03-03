@@ -197,3 +197,17 @@ def test_calculate_truck_factor(repo_miner,paths,suffixes,date_range):
     tf=repo_miner.get_truck_factor(paths,suffixes_of_interest=suffixes,date_range=date_range)
     # logger.debug(list(map(lambda k: (k[0],len(k[1])),tf[1].items())))
     assert tf[0]==1
+def test_get_count(repo_miner):
+    assert repo_miner.count_commits() >0
+    assert repo_miner.count_commits("development")>0
+    assert repo_miner.count_commits(to_commit="development")>0
+    assert repo_miner.count_commits("development","main")>0
+
+def test_get_dir_structure(repo_miner):
+    tree = repo_miner.get_dir_structure()
+    assert next(tree.find("dir_info.py","file")).name == "dir_info.py" 
+    repo_miner.get_dir_structure("development")
+    repo_miner.get_dir_structure("main")
+    repo_miner.get_dir_structure("dir_structure")
+    with raises(BadName):
+        repo_miner.get_dir_structure("asdjhgasdhgajsdhg")
