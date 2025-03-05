@@ -4,6 +4,7 @@ from typing import Union,Optional
 from datetime import date
 from pathlib import Path
 from waitress import serve
+from concurrent.futures import ThreadPoolExecutor
 from src._internal import RepoMiner
 from time import strptime,strftime
 import json
@@ -69,14 +70,18 @@ def start_app(repo_path:Union[str|Path],cicd_test:bool,env:bool):
 
 @callback(
         Output("commit_df_cache","data"),
+        Output("truck_cache","data"),
+        Output("contribution_cache","data"),
         Input("reload_button","n_clicks"),
         State("repo_path","data"),
         State("commit_df_cache","data"),
 )
 def listen_data(_,data,cache):
         if cache and _==0:
-            return cache
+            return no_update,no_update,no_update
         rp=RepoMiner(data)
+        with ThreadPoolExecutor() as executor:
+            result=executor.submit(rp.get_truck_factor)
         set_props("branch_picker",{"options":list(( b.name for b in rp.get_branches(deep=False)))})
         # set_props("author_loader",{"display":"show"})
         # set_props("author_loader_graph",{"display":"show"})
@@ -94,23 +99,10 @@ def listen_data(_,data,cache):
         set_props("author_picker",{"options":authors})
         # set_props("author_loader_graph",{"display":"auto"})
         # set_props("author_loader",{"display":"auto"})
-        
-        return commit_df.to_dict("records")
-@callback(        
-        Output("truck_cache","data"),
-        Output("contribution_cache","data"),
-        Input("commit_df_cache","data"),
-        State("repo_path","data"),
-        State("truck_cache","data"),
-        State("contribution_cache","data"),
-        prevent_initial_call=True
-        )
-def calculate_truck_factor(_,path,tf,cnt):
-    rp=RepoMiner(path)
-    tr_fa,contributions=rp.get_truck_factor()
-    contributions=[dict(contribution=c,author=a.JSON_serialize()) for a,c in contributions.items()]
-    # print(tr_fa,contributions)
-    return tr_fa,contributions
+        tr_fa,contributions=result.result()
+        contributions=[dict(contribution=c,author=a.JSON_serialize()) for a,c in contributions.items()]
+        return commit_df.to_dict("records"),tr_fa,contributions
+
 @callback(
         Output("branch_cache","data"),
         Input("branch_picker","value"),

@@ -388,21 +388,22 @@ class RepoMiner():
     #TODO: current implementation is a naive version of AVL algorithm for tf calculation, for future versions taking account of LOCC is advised
     def get_truck_factor(self,suffixes_of_interest:Optional[Iterable[Union[str]]]=set(),doa_threshold:float=0.75,coverage:float=0.5)->tuple[int,dict[Author,int]]:
     # def calculate_DL(self,input_tuple:tuple[Author,list[CommitInfo]])->int:
-        def calculate_DOA(authors:set[Author],file_commits:list[str],normalize:bool=True)->dict[Author,float]:
+        def calculate_DOA(kwargs)->dict[Author,float]:
+            file_commits=kwargs["file_commits"]
+            authors=kwargs["authors"]
             init_dim=len(file_commits)
             author_DOA:dict[Author,float]=dict()
             first_commit=file_commits[-1]
             file_commits=set(file_commits)
-            for author in self.get_authors():
+            for author in authors:
                 DL=len(set(author.commits_authored).intersection(file_commits))
                 FA= 1 if first_commit in author.commits_authored else 0
                 AC:int=abs(init_dim-DL)
                 DOA=3.293+1.098*FA+0.164*DL-0.321*log1p(AC)
                 author_DOA[author]=DOA
-            if normalize:
-                max_doa=max(author_DOA.values())
-                for k,v in author_DOA.items():
-                    author_DOA[k]=float(v/max_doa)
+            max_doa=max(author_DOA.values())
+            for k,v in author_DOA.items():
+                author_DOA[k]=float(v/max_doa)
                     
             return author_DOA
         
@@ -446,8 +447,15 @@ class RepoMiner():
                     continue
                 commits_per_file[path].append(c_hash)
         # print(commits_per_file)
-        for f in tracked_files:
-            result=calculate_DOA(authors=authors,file_commits=commits_per_file[f])
+        with ThreadPoolExecutor() as executor:
+            results= executor.map(calculate_DOA,[dict(authors=authors,file_commits=commits_per_file[f]) for f in tracked_files])
+        # for f in tracked_files:
+        #     result=calculate_DOA(authors=authors,file_commits=commits_per_file[f])
+        #     for author,doa in result.items():
+        #         if doa >=doa_th:
+        #             files_author_count[f].add(author)
+        #             author_files_counter[author]+=1
+        for f,result in zip(tracked_files,results):
             for author,doa in result.items():
                 if doa >=doa_th:
                     files_author_count[f].add(author)
