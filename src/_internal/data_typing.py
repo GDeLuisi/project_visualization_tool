@@ -9,7 +9,7 @@ from pathlib import Path
 # ACCEPTED_EXTENSIONS=Literal[".js",".py",".sh",".sql",".c",".cpp",".php",".html",".java",".rb"]
 ACCEPTED_EXTENSIONS=Literal[".js",".py",".sh",".sql",".c",".cpp",".php",".html",".java",".rb"]
 CONFIG_FOUND=False
-config_path=Path(__file__).joinpath("info","ext.json")
+config_path=Path(__file__).parent.joinpath("info","ext.json")
 if config_path.is_file():
     with config_path.open() as f:
         ACCEPTED_EXTENSIONS:dict[str,str]=json.load(f)
@@ -82,6 +82,8 @@ class CommitInfo(DataFrameAdapter):
 class Branch(DataFrameAdapter):
     name:str
     commits:list[str]
+    def __hash__(self):
+        return hash(self.name)
 @dataclass
 class File(DataFrameAdapter):
     name:str

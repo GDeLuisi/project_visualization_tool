@@ -211,3 +211,11 @@ def test_get_dir_structure(repo_miner):
     repo_miner.get_dir_structure("dir_structure")
     with raises(BadName):
         repo_miner.get_dir_structure("asdjhgasdhgajsdhg")
+
+def test_get_author_files(repo_miner):
+    tr_files=repo_miner.get_tracked_files()
+    authors=repo_miner.get_authors()
+    tot_files=set()
+    for auth in authors:
+        tot_files.update(repo_miner.get_author_files(auth.name))
+    assert set(tr_files).issubset(tot_files)
