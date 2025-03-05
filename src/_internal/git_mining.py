@@ -37,11 +37,11 @@ class GitRetrivialStrategy(RetrieveStrategy):
 
 class RepoMiner():
     COMMIT_PRETTY_FORMAT='--pretty=format:{"commit": "%H","abbreviated_commit": "%h","tree": "%T","abbreviated_tree": "%t","parent": "%P","abbreviated_parent": "%p","refs": "%D","encoding": "%e","subject": "%s","sanitized_subject_line": "%f","commit_notes": "%N","verification_flag": "%G?","signer": "%GS","signer_key": "%GK","author": {"name": "%aN","email": "%aE","date": "%aD"},"commiter": {"name": "%cN","email": "%cE","date": "%cI"}}|'
+    repo_lock=Lock()
     def __init__(self,repo_path:Union[Path,str],deep:bool=False):
         self.repo_path=repo_path
         if isinstance(repo_path,Path):
             self.repo_path=repo_path.as_posix()
-        self.repo_lock=Lock()
         self.repo=Repo(self.repo_path)
         self.git_repo=self.repo.git
         self.tree=self.get_dir_structure()
@@ -388,6 +388,24 @@ class RepoMiner():
     #TODO: current implementation is a naive version of AVL algorithm for tf calculation, for future versions taking account of LOCC is advised
     def get_truck_factor(self,suffixes_of_interest:Optional[Iterable[Union[str]]]=set(),doa_threshold:float=0.75,coverage:float=0.5)->tuple[int,dict[Author,int]]:
     # def calculate_DL(self,input_tuple:tuple[Author,list[CommitInfo]])->int:
+        def calculate_DOA(authors:set[Author],file_commits:list[str],normalize:bool=True)->dict[Author,float]:
+            init_dim=len(file_commits)
+            author_DOA:dict[Author,float]=dict()
+            first_commit=file_commits[-1]
+            file_commits=set(file_commits)
+            for author in self.get_authors():
+                DL=len(set(author.commits_authored).intersection(file_commits))
+                FA= 1 if first_commit in author.commits_authored else 0
+                AC:int=abs(init_dim-DL)
+                DOA=3.293+1.098*FA+0.164*DL-0.321*log1p(AC)
+                author_DOA[author]=DOA
+            if normalize:
+                max_doa=max(author_DOA.values())
+                for k,v in author_DOA.items():
+                    author_DOA[k]=float(v/max_doa)
+                    
+            return author_DOA
+        
         cov=coverage if coverage <=1 else 1/coverage
         doa_th=doa_threshold if doa_threshold<=1 else 1/doa_threshold
         unfiltered_files=self.get_tracked_files()
@@ -396,12 +414,40 @@ class RepoMiner():
             filters.update(infer_programming_language(unfiltered_files))
         tracked_files=list(filter(lambda file: check_extension(Path(file).suffix,filters)[0],unfiltered_files))
         authors=self.get_authors()
+        with self.repo_lock:
+            aliases_list=[re.split(r'\r\n|\n|\r',c) for c in re.split(r'\n\n',self.git_repo.log(["--name-status","--pretty=format:","-w","--all","--diff-filter=R"]))] 
+            file_commits=re.split(r'\n\n',self.git_repo.log(["--name-only","--pretty=format:%H","-w","--no-merges","--all"]))
+        aliases=dict()
+        for alias in aliases_list:
+            for al in alias:
+                a,n=al.split('\t')[1:]
+                aliases[a]=n
+        commits_per_file:dict[str,list[str]]=dict(zip(tracked_files,[list() for t in tracked_files]))
         files_author_count:dict[str,set[Author]]=dict(zip(tracked_files,[set() for t in tracked_files]))
         author_files_counter:dict[Author,int]=dict(zip(authors,[0 for author in authors]))
+        # print(aliases)
         tf=0
         tot_files=len(tracked_files)
+        #find all commits relative to a single file:
+        for commit in file_commits:
+            files=re.split(r'\r\n|\n|\r',commit)
+            # print(files)
+            c_hash=files.pop(0)
+            for f in files:
+                path=f
+                
+                while path not in commits_per_file:
+                    if path in aliases:
+                        path=aliases[path]
+                    else:
+                        path=None
+                        break
+                if not path:
+                    continue
+                commits_per_file[path].append(c_hash)
+        # print(commits_per_file)
         for f in tracked_files:
-            result=self.calculate_DOA(f)
+            result=calculate_DOA(authors=authors,file_commits=commits_per_file[f])
             for author,doa in result.items():
                 if doa >=doa_th:
                     files_author_count[f].add(author)
@@ -422,101 +468,5 @@ class RepoMiner():
                     orphans.add(f)
                     
         return (tf,author_files_counter)
-    
-    # def calculate_DOA(self,input_tuple:tuple[Author,list[CommitInfo]])->tuple[Author,float]:
-    #     author,commit_list=input_tuple
-    #     creation_commit=commit_list[0] if commit_list else None
-    #     FA=0
-    #     DL=0
-    #     logger.debug(f"Creation commit {creation_commit}")
-    #     if creation_commit and Author(creation_commit.author_email,creation_commit.author_name) == author:
-    #         FA=1
-    #     DL=self.calculate_DL((author,commit_list))
-    #     logger.debug(f"Calculating DOA for {str(author)}")
-    #     AC:int=abs(len(commit_list)-DL)
-    #     DOA=3.293+1.098*FA+0.164*DL-0.321*log1p(AC)
-    #     return (author,DOA)
-    
-    # def calculate_file_DOA(self,input_tuple:tuple[tuple[str, list[CommitInfo]], set[Author]])->tuple[str,dict[Author,float]]:
-    #     author_doa:dict[Author,float]=dict()
-    #     # print(author)
-    #     file_tuple,authors=input_tuple
-    #     filepath,commit_list=file_tuple
-    #     logger.debug(f"Checking {filepath} with {len(commit_list)}")
-    #     for result in map(lambda item:(item,commit_list),authors):
-    #         author,doa=self.calculate_DOA(result)
-    #         author_doa[author]=doa
-    #     return (filepath,author_doa)
-    
-    # #Calculate using AVI algorithm
-    # def get_truck_factor(self,path_of_interest:Optional[Iterable[Union[str|Path]]]=None,suffixes_of_interest:Optional[Iterable[Union[str]]]=set(),date_range:Optional[tuple[date,date]]=None,doa_threshold:float=0.75,coverage:float=0.5)->tuple[int,dict[Author,list[str]]]:
-    #     start=None
-    #     end=None
-        
-    #     if date_range and len(date_range)<=2:
-    #         try:
-    #             start,end=date_range
-    #         except ValueError:
-    #             start=date_range[0]
-    #     cov=coverage if coverage <=1 else 1/coverage
-    #     doa_th=doa_threshold if doa_threshold else 1/doa_threshold
-    #     if path_of_interest: 
-    #         unfiltered_files:set[str]=set()
-    #         for p in path_of_interest:
-    #             n_p=""
-    #             try:
-    #                 n_p=Path(p).relative_to(self.repo_path).as_posix() if isinstance(p,Path) else p
-    #             except ValueError:
-    #                 n_p=p.as_posix() if isinstance(p,Path) else p
-    #             finally:
-    #                 unfiltered_files.add(n_p)
-    #     else: 
-    #         unfiltered_files=set(self.get_tracked_files())
-    #     if isinstance(unfiltered_files,list):
-    #         logger.debug("Unfiltered files found",extra={"files":unfiltered_files})
-    #     author_files_counter:dict[str,list[str]]=dict()
-    #     files_author_count:dict[str,int]=dict()
-    #     file_relative_commit:dict[str,list[CommitInfo]]=dict()
-    #     orphans=0
-    #     tf=0
-    #     tot_files=0
-    #     authors:dict[str,Author]=dict()
-    #     filters=suffixes_of_interest
-    #     if not suffixes_of_interest:   
-    #         filters=self.infer_programming_language(unfiltered_files)
-    #     exts=set(filters)
-    #     for file in filter(lambda file: check_extension(Path(file).suffix,exts)[0],unfiltered_files):
-    #         logger.debug(f"Checking file {file}")
-    #         file_relative_commit[file]=[]
-    #         files_author_count[file]=0
-    #         for cl in self.lazy_load_commits(relative_path=file,start_date=start,end_date=end):
-    #             file_relative_commit[file].extend(cl)
-    #             for c in cl:
-    #                 if c.author_email not in authors:
-    #                     authors[c.author_email]=Author(c.author_email,c.author_name)
-    #                     author_files_counter[c.author_email]=[]
-    #                 authors[c.author_email].commits_authored.append(c.commit_hash)
-    #     tot_files=len(files_author_count.keys())
-    #     for t in map(lambda item:(item,authors.values()),file_relative_commit.items()):
-    #         file,doas=self.calculate_file_DOA(t)
-    #         for author,doa in doas.items():
-    #             max_doa=sorted(doas.values(),reverse=True)[0]
-    #             if float(doa/max_doa)>= doa_th:
-    #                 author_files_counter[author.email].append(file)
-    #                 files_author_count[file]+=1
-    #     author_sorted_list=sorted(((k,v) for k,v in author_files_counter.items()),key=lambda item:len(item[1]),reverse=True)
-    #     logger.debug("Author sorted DOA list",extra=dict(author_list=author_sorted_list))
-    #     i=int(0)
-    #     while orphans <= int(tot_files*cov):
-    #         author,fs=author_sorted_list[i]
-    #         i+=1
-    #         for f in fs:
-    #             files_author_count[f]-=1
-    #             if files_author_count[f]==0:
-    #                 orphans+=1
-    #             # print(orphans,i)
-    #             if orphans > int(tot_files/2):
-    #                 tf=i
-    #                 break
-    #     return (tf,author_files_counter)
+
     

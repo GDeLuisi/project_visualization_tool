@@ -34,10 +34,11 @@ file_cards = [
         dbc.CardBody(
                 [
                 html.H4( ["File Authors"],id="authors-description-title",className="card-title"),
-                html.P(
+                html.Div(
                         id="authors-description-text",
                         className="card-text",
                 )
+                
                 ]
         ),
         ),
@@ -53,12 +54,31 @@ file_cards = [
         ),
         
 ]
+sideb=dbc.Offcanvas(id="sidebar_info",title="Directory discovery",is_open=False,children=
+        file_cards
+)
 
-sideb=dbc.Stack(className="bg-secondary bg-opacity-25 rounded-2 p-2 h-75",gap=2)
-sideb.children=file_cards
+stack=dbc.Stack(id="stack_info",className="p-2 h-75",children=[
+        dbc.Card(
+        dcc.Loading([
+                dbc.CardBody(
+                [
+                html.H4(["Truck Factor"] ,className="card-title"),
+                html.Div(
+                        id="truck-calculation-div",
+                )
+                ]
+        ),
+        ],overlay_style={"visibility":"visible", "filter": "blur(2px)"}
+        ),
+        
+        )
+        ,
+        dbc.Button(id="open_info",children=["Click for more info"])
+        ],gap=2)
 
 layout = dbc.Container([
-        dcc.Store("file-info-store"),
+        dcc.Store("file-info-store"),sideb,
         dcc.Loading(id="dir_info_loader",display="show",fullscreen=True),
         dbc.Modal(
                 [
@@ -79,9 +99,11 @@ layout = dbc.Container([
                         ]
                 ,width=10,align="center"),
                 dbc.Col(
-                sideb
-                ,width=2)
+                        [stack],
+                        width=2,
+                )
                 ]),
+                
                 ]
                 ,fluid=True)
         
@@ -96,7 +118,7 @@ def populate_treemap(b,data):
         rp=RepoMiner(data)
         tree = rp.get_dir_structure(b)
         df=tree.get_treemap()
-        fig=px.treemap(data_frame=pd.DataFrame(df),parents=df["parent"],names=df["name"],ids=df["child"],color_discrete_map={'(?)':'lightgrey', 'file':'paleturquoise', 'folder':'crimson'},color=df["type"],custom_data=["id","type"],height=800)
+        fig=px.treemap(data_frame=pd.DataFrame(df),parents=df["parent"],names=df["name"],ids=df["child"],color_discrete_map={'(?)':'lightgrey', 'file':'paleturquoise', 'folder':'crimson'},color=df["type"],custom_data=["id","type"],maxdepth=2,height=800)
         fig.update_layout(
         uniformtext=dict(minsize=10),
         margin = dict(t=50, l=25, r=25, b=25)
@@ -125,12 +147,29 @@ def populate_treemap(b,data):
 #         return [html.Div([line]) for line in text],[data["points"][0]["label"]],True
 
 @callback(
+    Output("sidebar_info", "is_open"),
+    Input("open_info", "n_clicks"),
+    [State("sidebar_info", "is_open")],
+)
+def toggle_offcanvas(n1, is_open):
+    if n1:
+        return not is_open
+    return is_open
+
+@callback(
+        Output("authors-description-text","children"),
         Output("file-info-store","data"),
         Input("dir_treemap","clickData"),
         State("repo_path","data"),
         State("file-info-store","data"),
 )
 def load_file_info(f_data,repo_path,cache):
-        if cache["id"]==f_data["points"][0]["id"]:
-                return no_update
-        
+        if not f_data or f_data["points"][0]["id"] == cache:
+                return no_update,""
+        file_id=f_data["points"][0]["id"]
+        rm=RepoMiner(repo_path)
+        au_doa=rm.calculate_DOA(file_id)
+        divs=[]
+        for k,v in au_doa.items():
+                divs.append(f"Author {k.name} <{k.email}> with DOA {round(v,2)}")
+        return divs,file_id

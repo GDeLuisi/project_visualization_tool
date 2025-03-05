@@ -6,6 +6,7 @@ from pathlib import Path
 from waitress import serve
 from src._internal import RepoMiner
 from time import strptime,strftime
+import json
 import pandas as pd
 import numpy as np
 import plotly.express as px
@@ -40,7 +41,8 @@ def start_app(repo_path:Union[str|Path],cicd_test:bool,env:bool):
         dbc.Container([
             # dcc.Store(id="commit_df"),
             # dcc.Store(id="author_df"),
-
+            dcc.Store(id="contribution_cache"),
+            dcc.Store(id="truck_cache"),
             dcc.Store(id="branch_cache"),
             dcc.Store("repo_path",data=path,storage_type="session"),
             dcc.Loading(fullscreen=True,children=[
@@ -54,6 +56,7 @@ def start_app(repo_path:Union[str|Path],cicd_test:bool,env:bool):
                         children=[page_container],
                         width=10,align="end"), 
             ],align="start"),
+            html.Div(id="test-div")
             
         ],fluid=True)
     ])
@@ -69,13 +72,14 @@ def start_app(repo_path:Union[str|Path],cicd_test:bool,env:bool):
         Input("reload_button","n_clicks"),
         State("repo_path","data"),
         State("commit_df_cache","data"),
-        prevent_initial_call=True
 )
 def listen_data(_,data,cache):
+        if cache and _==0:
+            return cache
         rp=RepoMiner(data)
         set_props("branch_picker",{"options":list(( b.name for b in rp.get_branches(deep=False)))})
-        set_props("author_loader",{"display":"show"})
-        set_props("author_loader_graph",{"display":"show"})
+        # set_props("author_loader",{"display":"show"})
+        # set_props("author_loader_graph",{"display":"show"})
         m_count=None
         commit_df=pd.DataFrame()
         for commit_list in rp.lazy_load_commits(max_count=m_count):
@@ -88,10 +92,25 @@ def listen_data(_,data,cache):
         commit_df["dow_n"]=commit_df["date"].dt.day_of_week
         authors=commit_df["author_name"].unique().tolist()
         set_props("author_picker",{"options":authors})
-        set_props("author_loader_graph",{"display":"auto"})
-        set_props("author_loader",{"display":"auto"})
+        # set_props("author_loader_graph",{"display":"auto"})
+        # set_props("author_loader",{"display":"auto"})
+        
         return commit_df.to_dict("records")
-    
+@callback(        
+        Output("truck_cache","data"),
+        Output("contribution_cache","data"),
+        Input("commit_df_cache","data"),
+        State("repo_path","data"),
+        State("truck_cache","data"),
+        State("contribution_cache","data"),
+        prevent_initial_call=True
+        )
+def calculate_truck_factor(_,path,tf,cnt):
+    rp=RepoMiner(path)
+    tr_fa,contributions=rp.get_truck_factor()
+    contributions=[dict(contribution=c,author=a.JSON_serialize()) for a,c in contributions.items()]
+    # print(tr_fa,contributions)
+    return tr_fa,contributions
 @callback(
         Output("branch_cache","data"),
         Input("branch_picker","value"),
@@ -103,21 +122,20 @@ def listen_data(_,data,cache):
 def filter_branch_data(v,author,cache,path):
         branch=None if not v or "all" == v else v            
         if v or author and v!="all":
-            rp=RepoMiner(path)
             df=pd.DataFrame(cache)
-            b=rp.get_branch(branch)
-            # print(len(b.commits))
-            df=df[df["commit_hash"].isin(b.commits)] if v else df
+            if v:
+                rp=RepoMiner(path)
+                b=rp.get_branch(branch)
+                df=df[df["commit_hash"].isin(b.commits)] if v else df
             df=df[df["author_name"]==author] if author else df
             # df.info()
             return df.to_dict("records")
         return cache
     
 @callback(
-        Output("author_cache","data"),
-        Input("commit_df_cache","data"),
-        prevent_initial_call=True
+    Output("test-div","children"),
+    Input("truck_cache","data"),
+    Input("contribution_cache","data"),
 )
-def filter_branch_data(cache):
-        
-        return no_update
+def test(tf,cont):
+    return [tf,html.Div([json.dumps(cont)])]
