@@ -22,6 +22,7 @@ def start_app(repo_path:Union[str|Path],cicd_test:bool,env:bool):
             dbc.NavItem(dbc.NavLink("Home", href="/")),
             dbc.NavItem(dbc.NavLink("Directory analysis", href="/dir")),
             dbc.Button(id="reload_button",children=[html.I(className="bi bi-arrow-counterclockwise p-1")],className="p1 bg-transparent border-0"),
+            dbc.Button(id="open_info",children=[html.I(className="bi bi-list p-1")],className="p1 bg-transparent border-0"),
         ],
         brand="Project Visualization Tool",
         brand_href="/",
@@ -31,35 +32,34 @@ def start_app(repo_path:Union[str|Path],cicd_test:bool,env:bool):
         sticky=True,
         fluid=True
     )
-    sidebar_stack=dbc.Stack(
+    
+    general_options=dbc.Offcanvas(id="sidebar_info",title="Directory discovery",is_open=False,children=
+        [dbc.Stack(
         [
             html.Div([dbc.Label(["Branch Picker"]),dcc.Dropdown(id="branch_picker",searchable=True,clearable=True,placeholder="Branch name")]),
-            html.Div([dbc.Label(["Author Picker"]),dcc.Dropdown(id="author_picker",searchable=True,clearable=True,placeholder="Author name")]),
-        ], gap=2,className="p-2"
-    )
+        ], gap=2,className="p-2")
+        ])
     app.layout = html.Div([
+        dcc.Store(id="contribution_cache"),
+        dcc.Store(id="truck_cache"),
+        dcc.Store(id="branch_cache"),
+        dcc.Store(id="authors_cache"),
+        dcc.Store("repo_path",data=path,storage_type="session"),
         navbar,
-        dbc.Container([
-            # dcc.Store(id="commit_df"),
-            # dcc.Store(id="author_df"),
-            dcc.Store(id="contribution_cache"),
-            dcc.Store(id="truck_cache"),
-            dcc.Store(id="branch_cache"),
-            dcc.Store("repo_path",data=path,storage_type="session"),
-            dcc.Loading(fullscreen=True,children=[
-                dcc.Store(id="commit_df_cache",storage_type="session"),
-                ]),
-            dbc.Row([
+        general_options,
+        dbc.Row([ 
                 dbc.Col(
-                        children=[sidebar_stack],
-                        width=2,align="start"), 
-                dbc.Col(
-                        children=[page_container],
-                        width=10,align="end"), 
-            ],align="start"),
-            html.Div(id="test-div")
-            
-        ],fluid=True)
+                        children=[
+                            dbc.Container([
+                            dcc.Loading(fullscreen=True,children=[
+                                dcc.Store(id="commit_df_cache",storage_type="session"),
+                                
+                                ]),
+                            page_container
+                            ],fluid=True)
+                            ],
+                        width=12,align="end"), 
+            ],align="start")        
     ])
     if not cicd_test:
         if env=="DEV":
@@ -72,13 +72,14 @@ def start_app(repo_path:Union[str|Path],cicd_test:bool,env:bool):
         Output("commit_df_cache","data"),
         Output("truck_cache","data"),
         Output("contribution_cache","data"),
+        Output("authors_cache","data"),
         Input("reload_button","n_clicks"),
         State("repo_path","data"),
         State("commit_df_cache","data"),
 )
 def listen_data(_,data,cache):
         if cache and _==0:
-            return no_update,no_update,no_update
+            return no_update,no_update,no_update,no_update
         rp=RepoMiner(data)
         with ThreadPoolExecutor() as executor:
             result=executor.submit(rp.get_truck_factor)
@@ -87,6 +88,7 @@ def listen_data(_,data,cache):
         # set_props("author_loader_graph",{"display":"show"})
         m_count=None
         commit_df=pd.DataFrame()
+        authors=pd.DataFrame()
         for commit_list in rp.lazy_load_commits(max_count=m_count):
                 cl_df=pd.concat(map(lambda c:c.get_dataframe(),commit_list))
                 # print(cl_df.info())
@@ -95,39 +97,36 @@ def listen_data(_,data,cache):
         commit_df["date"]=pd.to_datetime(commit_df["date"])
         commit_df["dow"]=commit_df["date"].dt.day_name()
         commit_df["dow_n"]=commit_df["date"].dt.day_of_week
-        authors=commit_df["author_name"].unique().tolist()
-        set_props("author_picker",{"options":authors})
+        for author in rp.get_authors():
+            authors=pd.concat([authors,author.get_dataframe()])
         # set_props("author_loader_graph",{"display":"auto"})
         # set_props("author_loader",{"display":"auto"})
         tr_fa,contributions=result.result()
-        contributions=[dict(contribution=c,author=a.JSON_serialize()) for a,c in contributions.items()]
-        return commit_df.to_dict("records"),tr_fa,contributions
+        contributions=dict([(f"{a.name}{a.email}",c) for a,c in contributions.items()])
+        return commit_df.to_dict("records"),tr_fa,contributions,authors.to_dict("records")
 
 @callback(
         Output("branch_cache","data"),
         Input("branch_picker","value"),
-        Input("author_picker","value"),
         Input("commit_df_cache","data"),
         State("repo_path","data"),
         prevent_initial_call=True
 )
-def filter_branch_data(v,author,cache,path):
+def filter_branch_data(v,cache,path):
         branch=None if not v or "all" == v else v            
-        if v or author and v!="all":
+        if v  and v!="all":
             df=pd.DataFrame(cache)
-            if v:
-                rp=RepoMiner(path)
-                b=rp.get_branch(branch)
-                df=df[df["commit_hash"].isin(b.commits)] if v else df
-            df=df[df["author_name"]==author] if author else df
-            # df.info()
+            rp=RepoMiner(path)
+            b=rp.get_branch(branch)
+            df=df[df["commit_hash"].isin(b.commits)] if v else df
             return df.to_dict("records")
         return cache
+
     
-@callback(
-    Output("test-div","children"),
-    Input("truck_cache","data"),
-    Input("contribution_cache","data"),
-)
-def test(tf,cont):
-    return [tf,html.Div([json.dumps(cont)])]
+# @callback(
+#     Output("test-div","children"),
+#     Input("truck_cache","data"),
+#     Input("contribution_cache","data"),
+# )
+# def test(tf,cont):
+#     return [tf,html.Div([json.dumps(cont)])]

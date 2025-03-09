@@ -34,7 +34,24 @@ class GitRetrivialStrategy(RetrieveStrategy):
             raise FileNotFoundError("Couldn't retrieve the object")
         return re.split(string=self.git.cat_file("-p",id),pattern=r"\r\n|\r|\n")
         
-
+def _calculate_DOA(kwargs)->dict[Author,float]:
+            file_commits=kwargs["file_commits"]
+            authors=kwargs["authors"]
+            init_dim=len(file_commits)
+            author_DOA:dict[Author,float]=dict()
+            first_commit=file_commits[-1]
+            file_commits=set(file_commits)
+            for author in authors:
+                DL=len(set(author.commits_authored).intersection(file_commits))
+                FA= 1 if first_commit in author.commits_authored else 0
+                AC:int=abs(init_dim-DL)
+                DOA=3.293+1.098*FA+0.164*DL-0.321*log1p(AC)
+                author_DOA[author]=DOA
+            max_doa=max(author_DOA.values())
+            for k,v in author_DOA.items():
+                author_DOA[k]=float(v/max_doa)
+                    
+            return author_DOA
 class RepoMiner():
     COMMIT_PRETTY_FORMAT='--pretty=format:{"commit": "%H","abbreviated_commit": "%h","tree": "%T","abbreviated_tree": "%t","parent": "%P","abbreviated_parent": "%p","refs": "%D","encoding": "%e","subject": "%s","sanitized_subject_line": "%f","commit_notes": "%N","verification_flag": "%G?","signer": "%GS","signer_key": "%GK","author": {"name": "%aN","email": "%aE","date": "%aD"},"commiter": {"name": "%cN","email": "%cE","date": "%cI"}}|'
     repo_lock=Lock()
@@ -209,6 +226,26 @@ class RepoMiner():
             logger.error("Branch not found")
             raise ValueError("Branch not found")
         return count
+    
+    def get_author(self,name:str)->set[Author]:
+        pattern=re.compile(r'([A-Za-zÀ-ÖØ-öø-ÿé\s]+) <([a-z0-9A-ZÀ-ÖØ-öø-ÿé!#$%@.&*+\/=?^_{|}~-]+)> \(\d+\)')
+        authors:set[Author]=set()
+        with self.repo_lock:
+            per_author:list[str]=self.git_repo.shortlog("-e","--format=%H","--all",f"--author={name}").strip('\n').split('\n\n')
+        for a_str in per_author:
+            line_list=a_str.split('\n')
+            l=line_list.pop(0).strip()
+            logger.debug(l)
+            match=re.match(pattern=pattern,string=l)
+            if not match:
+                continue
+            name,email=match.groups()
+            auth=Author(email,name)
+            for line in line_list:
+                auth.commits_authored.append(line.strip())
+            authors.add(auth)
+        return authors
+    
     def get_authors(self)->set[Author]:
         pattern=re.compile(r'([A-Za-zÀ-ÖØ-öø-ÿé\s]+) <([a-z0-9A-ZÀ-ÖØ-öø-ÿé!#$%@.&*+\/=?^_{|}~-]+)> \(\d+\)')
         authors:set[Author]=set()
@@ -329,18 +366,51 @@ class RepoMiner():
     def get_file_authors(self):
         pass
 
-    def get_author_files(self,name:str,branch:Optional[str]=None)->set[str]:
-        if not any(map(lambda b: b.name==name,self.authors)):
-            raise KeyError("Author name not found")
-        args=["--name-only","-w","--pretty=","--author",name]
-        if branch and not any(map(lambda b: b.name==branch,self.branches)):
-            raise KeyError("Branch name not found")
-        elif branch:
-            args.insert(0,branch)
-        else:
-            args.insert(0,"--all")
-        with self.repo_lock:
-            return set(re.split(r'\r\n|\r|\n',self.git_repo.log(args)))
+    # def get_author_files(self,name:str,email:str,branch:Optional[str]=None)->dict[str,float]:
+    #     authors=[a for a in self.get_author(name) if a.email ==email]
+    #     print(repr(authors[0]))
+    #     args=["--name-only","-w","--pretty=format:%H"]
+    #     aliases_args=["--name-status","-w","--pretty=format:","--diff-filter=R"]
+    #     tracked_files=set(self.get_tracked_files())
+    #     commits_per_file:dict[str,list[str]]=dict(zip(tracked_files,[list() for t in tracked_files]))
+    #     aliases=dict()
+    #     file_doa:dict[str,dict[Author,float]]=dict()
+    #     if branch:
+    #         args.insert(0,branch)
+    #         aliases_args.insert(0,branch)
+    #     else:
+    #         args.insert(0,"--all")
+    #         aliases_args.insert(0,"--all")
+            
+    #     with self.repo_lock:
+    #         aliases_list=[re.split(r'\r\n|\n|\r',c) for c in re.split(r'\n\n',self.git_repo.log(aliases_args))] 
+    #         author_commits=re.split(r'\n\n',self.git_repo.log(args))
+    #     for alias in aliases_list:
+    #         alias=filter(lambda f: f!="",alias)
+    #         for al in alias:
+    #             a,n=al.split('\t')[1:]
+    #             aliases[a]=n
+    #     for commit in author_commits:
+    #         files=re.split(r'\r\n|\n|\r',commit)
+    #         # print(files)
+    #         c_hash=files.pop(0)
+    #         for f in files:
+    #             path=f
+    #             while path not in tracked_files:
+    #                 if path in aliases:
+    #                     path=aliases[path]
+    #                 else:
+    #                     path=None
+    #                     break
+    #             if not path:
+    #                 continue
+    #             commits_per_file[path].append(c_hash)
+    #     for k,v in commits_per_file.items():
+    #         if v:
+    #             result=_calculate_DOA(dict(authors=authors,file_commits=v))
+    #             for author,doa in result.items():
+    #                 file_doa[k]=doa
+    #     return file_doa
     
     def calculate_DL(self,author:Author,filepath:Union[Path,str])->int:
         p=filepath
@@ -386,26 +456,8 @@ class RepoMiner():
         return author_DOA
 
     #TODO: current implementation is a naive version of AVL algorithm for tf calculation, for future versions taking account of LOCC is advised
-    def get_truck_factor(self,suffixes_of_interest:Optional[Iterable[Union[str]]]=set(),doa_threshold:float=0.75,coverage:float=0.5)->tuple[int,dict[Author,int]]:
+    def get_truck_factor(self,suffixes_of_interest:Optional[Iterable[Union[str]]]=set(),doa_threshold:float=0.75,coverage:float=0.5)->tuple[int,dict[Author,dict[str,float]]]:
     # def calculate_DL(self,input_tuple:tuple[Author,list[CommitInfo]])->int:
-        def calculate_DOA(kwargs)->dict[Author,float]:
-            file_commits=kwargs["file_commits"]
-            authors=kwargs["authors"]
-            init_dim=len(file_commits)
-            author_DOA:dict[Author,float]=dict()
-            first_commit=file_commits[-1]
-            file_commits=set(file_commits)
-            for author in authors:
-                DL=len(set(author.commits_authored).intersection(file_commits))
-                FA= 1 if first_commit in author.commits_authored else 0
-                AC:int=abs(init_dim-DL)
-                DOA=3.293+1.098*FA+0.164*DL-0.321*log1p(AC)
-                author_DOA[author]=DOA
-            max_doa=max(author_DOA.values())
-            for k,v in author_DOA.items():
-                author_DOA[k]=float(v/max_doa)
-                    
-            return author_DOA
         
         cov=coverage if coverage <=1 else 1/coverage
         doa_th=doa_threshold if doa_threshold<=1 else 1/doa_threshold
@@ -423,9 +475,10 @@ class RepoMiner():
             for al in alias:
                 a,n=al.split('\t')[1:]
                 aliases[a]=n
-        commits_per_file:dict[str,list[str]]=dict(zip(tracked_files,[list() for t in tracked_files]))
+        commits_per_file:dict[str,list[str]]=dict(zip(unfiltered_files,[list() for t in unfiltered_files]))
         files_author_count:dict[str,set[Author]]=dict(zip(tracked_files,[set() for t in tracked_files]))
         author_files_counter:dict[Author,int]=dict(zip(authors,[0 for author in authors]))
+        author_doa_per_file:dict[Author,dict[str,float]]=dict(zip(authors,[dict(zip(unfiltered_files,[0 for t in unfiltered_files])) for author in authors]))
         # print(aliases)
         tf=0
         tot_files=len(tracked_files)
@@ -448,7 +501,8 @@ class RepoMiner():
                 commits_per_file[path].append(c_hash)
         # print(commits_per_file)
         with ThreadPoolExecutor() as executor:
-            results= executor.map(calculate_DOA,[dict(authors=authors,file_commits=commits_per_file[f]) for f in tracked_files])
+            results= executor.map(_calculate_DOA,[dict(authors=authors,file_commits=commits_per_file[f]) for f in tracked_files])
+            full_doa_results=executor.map(_calculate_DOA,[dict(authors=authors,file_commits=commits_per_file[f]) for f in unfiltered_files])
         # for f in tracked_files:
         #     result=calculate_DOA(authors=authors,file_commits=commits_per_file[f])
         #     for author,doa in result.items():
@@ -460,7 +514,11 @@ class RepoMiner():
                 if doa >=doa_th:
                     files_author_count[f].add(author)
                     author_files_counter[author]+=1
-                    
+        
+        for f,result in zip(unfiltered_files,full_doa_results):
+            for author,doa in result.items():
+                author_doa_per_file[author][f]=doa
+
         author_sorted_list=sorted(((k,v) for k,v in author_files_counter.items()),key=lambda item:item[1],reverse=True)
         i=int(0)
         orphans=set()
@@ -475,6 +533,6 @@ class RepoMiner():
                 if len(a)==0:
                     orphans.add(f)
                     
-        return (tf,author_files_counter)
+        return (tf,author_doa_per_file)
 
     

@@ -54,42 +54,54 @@ file_cards = [
         ),
         
 ]
-sideb=dbc.Offcanvas(id="sidebar_info",title="Directory discovery",is_open=False,children=
-        file_cards
-)
+
 
 stack=dbc.Stack(id="stack_info",className="p-2 h-75",children=[
         dbc.Card(
-        dcc.Loading([
                 dbc.CardBody(
                 [
-                html.H4(["Truck Factor"] ,className="card-title"),
-                html.Div(
-                        id="truck-calculation-div",
-                )
+                        dbc.Row([
+                                dbc.Col(
+                                        children=[html.Div([dbc.Label(["Author Picker"]),dcc.Dropdown(id="author_picker",searchable=True,clearable=True,placeholder="Author name")]),],
+                                        width=6),
+                                dbc.Col(
+                                                children=[html.Div([dbc.Label(["Author Email Picker"]),dcc.Dropdown(id="author_picker_email",searchable=True,disabled=True,clearable=True,placeholder="Author email")]),],
+                                                width=6)
+                                        
+                                ]),
+                                
+                        dbc.Row([
+                                dbc.Col(
+                                        children=[html.Div([dbc.Label(["Degree of Authorship(DOA) threshold picker"]),dcc.Slider(id="doa_picker",min=0,max=1,step=0.1,value=0.75)]),],
+                                        width=12),
+                                ]),
+                        dbc.Row([
+                                dbc.Col(
+                                        children=[dbc.Button(id="calculate_doa",children=["Calculate DOAs"],disabled=False)],
+                                        width=12),
+                                ]),
                 ]
+        ),
+        ),
+        dbc.Card(
+                dcc.Loading([
+                        dbc.CardBody(
+                        [
+                        html.H1(["Truck Factor"] ,className="card-title"),
+                        html.Div(
+                                id="truck-calculation-div",
+                        )
+                        ]
         ),
         ],overlay_style={"visibility":"visible", "filter": "blur(2px)"}
         ),
-        
         )
         ,
-        dbc.Button(id="open_info",children=["Click for more info"])
         ],gap=2)
 
 layout = dbc.Container([
-        dcc.Store("file-info-store"),sideb,
+        dcc.Store("authors_doas",data=dict()),
         dcc.Loading(id="dir_info_loader",display="show",fullscreen=True),
-        dbc.Modal(
-                [
-                dbc.ModalHeader(dbc.ModalTitle("Test",id="modal_title")),
-                dbc.ModalBody(id="modal_body"),
-                ],
-                id="test-div",
-                scrollable=True,
-                fullscreen=True,
-                is_open=False,
-                ),
         dbc.Row([
                 dbc.Col(
                         [
@@ -100,7 +112,7 @@ layout = dbc.Container([
                 ,width=10,align="center"),
                 dbc.Col(
                         [stack],
-                        width=2,
+                        width=2,align="center"
                 )
                 ]),
                 
@@ -110,15 +122,39 @@ layout = dbc.Container([
 
 @callback(
         Output("dir_treemap","figure"),
+        Input("calculate_doa","n_clicks"),
         Input("branch_picker","value"),
-        State("repo_path","data")
+        State("author_picker","value"),
+        State("author_picker_email","value"),
+        State("doa_picker","value"),
+        State("repo_path","data"),
+        State("contribution_cache","data"),
 )
-def populate_treemap(b,data):
+def populate_treemap(_,b,name,email,doa,data,cache):
         # df=pd.DataFrame(cache)
         rp=RepoMiner(data)
+        author_doas=None
+        if name and email:
+                author=f"{name}{email}"
+                author_doas=cache[author]
+
         tree = rp.get_dir_structure(b)
         df=tree.get_treemap()
-        fig=px.treemap(data_frame=pd.DataFrame(df),parents=df["parent"],names=df["name"],ids=df["child"],color_discrete_map={'(?)':'lightgrey', 'file':'paleturquoise', 'folder':'crimson'},color=df["type"],custom_data=["id","type"],maxdepth=2,height=800)
+        # print(df)
+        df=pd.DataFrame(df)
+        
+        if author_doas:
+                # print(author_doas)
+                files=[k for k,v in author_doas.items() if v>=doa]
+                doas=set()
+                for f in files:
+                        ps=Path(f).parts
+                        for part in ps:
+                                doas.add(part)
+                # print(doas)
+                df=df.loc[df["name"].isin(doas)].reset_index(drop=True)
+                # print(df.head())
+        fig=px.treemap(data_frame=df,parents=df["parent"],names=df["name"],ids=df["child"],color_discrete_map={'(?)':'lightgrey', 'file':'paleturquoise', 'folder':'crimson'},color=df["type"],custom_data=["id","type"],maxdepth=2,height=800)
         fig.update_layout(
         uniformtext=dict(minsize=10),
         margin = dict(t=50, l=25, r=25, b=25)
@@ -147,29 +183,60 @@ def populate_treemap(b,data):
 #         return [html.Div([line]) for line in text],[data["points"][0]["label"]],True
 
 @callback(
-    Output("sidebar_info", "is_open"),
-    Input("open_info", "n_clicks"),
-    [State("sidebar_info", "is_open")],
+        Output("sidebar_info", "is_open"),
+        Input("open_info", "n_clicks"),
+        [State("sidebar_info", "is_open")],
 )
 def toggle_offcanvas(n1, is_open):
-    if n1:
-        return not is_open
-    return is_open
+        if n1:
+                return not is_open
+        return is_open
+
+# @callback(
+#         Output("author_doas","data"),
+#         Input("calculate_doa","n_clicks"),
+#         State("author_picker","value"),
+#         State("doa_picker","value"),
+#         State("branch_picker","value"),
+#         State("repo_path","data"),
+# )
+# def calculate_author_DOA(_,auth,doa_th,branch,path,cache):
+#         if auth in cache:
+                
+#         set_props("dir_treemap_loader",{"display":"show"})
+#         rp=RepoMiner(repo_path=path)
+        
+#         rp.get_author_files(auth,branch,doa_th)
+#         set_props("dir_treemap_loader",{"display":"auto"})
+        
+#         return None if auth else no_update
+
 
 @callback(
-        Output("authors-description-text","children"),
-        Output("file-info-store","data"),
-        Input("dir_treemap","clickData"),
-        State("repo_path","data"),
-        State("file-info-store","data"),
+        Output("author_picker","options"),
+        Input("authors_cache","data"),
 )
-def load_file_info(f_data,repo_path,cache):
-        if not f_data or f_data["points"][0]["id"] == cache:
-                return no_update,""
-        file_id=f_data["points"][0]["id"]
-        rm=RepoMiner(repo_path)
-        au_doa=rm.calculate_DOA(file_id)
-        divs=[]
-        for k,v in au_doa.items():
-                divs.append(f"Author {k.name} <{k.email}> with DOA {round(v,2)}")
-        return divs,file_id
+def populate_author_picker(cache):
+        authors_df=pd.DataFrame(cache)
+        return authors_df["name"].unique().tolist()
+
+@callback(
+        Output("author_picker_email","options"),
+        Output("author_picker_email","disabled"),
+        Input("author_picker","value"),
+        State("authors_cache","data"),
+)
+def populate_author_picker(name,cache):
+        if name:
+                authors_df=pd.DataFrame(cache)
+                authors_df=authors_df.loc[authors_df["name"]==name]
+                return authors_df["email"].unique().tolist(),False
+        else:
+                return no_update,True
+
+@callback(
+        Output("calculate_doa","disabled"),
+        Input("author_picker_email","value"),
+)
+def populate_author_picker(val):
+        return val==None

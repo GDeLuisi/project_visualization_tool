@@ -47,10 +47,9 @@ layout = dbc.Container([
         Output("graph","figure"),
         Input("x_picker","value"),
         Input("branch_cache","data"),
-        Input("author_picker","value"),
         State("branch_picker","value"),
 )
-def update_count_graph(pick,data,author,branch):
+def update_count_graph(pick,data,branch):
         commit_df=pd.DataFrame(data)
         if pick =="dow":
                 count_df=commit_df.groupby(["dow","dow_n"])

@@ -52,7 +52,8 @@ class Author(DataFrameAdapter,JSONSerializebleAdapter):
         return self.name==value.name and self.email==value.email
     def __str__(self):
         return f"Name: {self.name} , Email: {self.email}"
-    
+    def __repr__(self):
+        return  f"Name: {self.name} , Email: {self.email} , Commits: {self.commits_authored}"
 @dataclass
 class CommitInfo(DataFrameAdapter):
     commit_hash:str
