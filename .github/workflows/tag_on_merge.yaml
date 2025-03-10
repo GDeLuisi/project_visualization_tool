@@ -35,13 +35,13 @@ jobs:
       shell:  bash
       run: |
         major=$((MAJOR+1))
-        echo "TAG=$major.$MINOR.$PATCH" >> $GITHUB_ENV
+        echo "TAG=$major.0.0" >> $GITHUB_ENV
     - if: contains(github.event.pull_request.labels.*.name, 'minor')
       name: "Increment Minor"
       shell:  bash
       run: |
         minor=$((MINOR+1))
-        echo "TAG=$MAJOR.$minor.$PATCH" >> $GITHUB_ENV
+        echo "TAG=$MAJOR.$minor.0" >> $GITHUB_ENV
     - if: contains(github.event.pull_request.labels.*.name, 'patch')
       name: "Increment Patch"
       shell:  bash

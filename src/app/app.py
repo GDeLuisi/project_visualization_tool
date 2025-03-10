@@ -3,7 +3,7 @@ from dash import Dash,html,dcc,page_container,Input,Output,callback,no_update,Di
 from typing import Union,Optional
 from datetime import date
 from pathlib import Path
-from waitress import serve
+from waitress import serve,server
 from concurrent.futures import ThreadPoolExecutor
 from src._internal import RepoMiner
 from time import strptime,strftime
@@ -67,7 +67,7 @@ def start_app(repo_path:Union[str|Path],cicd_test:bool,env:bool):
             app.run(debug=True,dev_tools_hot_reload=True)
         else:
             open("http://localhost:8050/")
-            serve(app.server,host="localhost",port=8050,_quiet=True)
+            serve(app.server,host="localhost",port=8050,_quiet=True,threads=100)
 
 @callback(
         Output("commit_df_cache","data"),
