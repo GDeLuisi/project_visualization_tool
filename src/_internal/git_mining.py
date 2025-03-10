@@ -168,7 +168,7 @@ class RepoMiner():
                 rev=arglist.pop(0)
                 if ".." in rev:
                     start,pr_end=rev.split("..")
-                    next_revision=f"{next_revision}...{pr_end}"
+                    next_revision=f"{next_revision}..{pr_end}"
                 if "--" in rev:
                     arglist.insert(0,rev)
                 arglist.insert(0,next_revision)
@@ -232,6 +232,9 @@ class RepoMiner():
         authors:set[Author]=set()
         with self.repo_lock:
             per_author:list[str]=self.git_repo.shortlog("-e","--format=%H","--all",f"--author={name}").strip('\n').split('\n\n')
+        logger.debug(per_author)
+        if not per_author[0]:
+            raise ValueError("Author does not exist")
         for a_str in per_author:
             line_list=a_str.split('\n')
             l=line_list.pop(0).strip()
@@ -307,9 +310,12 @@ class RepoMiner():
         val=name if name else email
         return self.lazy_load_commits(author=val)
     
-    def get_tracked_files(self)->list[str]:
-        with self.repo_lock:
-            files=re.split(string=self.git_repo.ls_files(),pattern=r'\r\n|\n|\r')
+    def get_tracked_files(self)->Iterable[str]:
+        files=set()
+        for b in self.get_branches(deep=False):
+            with self.repo_lock:
+                files.update(re.split(string=self.git_repo.ls_tree(b.name, "-r","--name-only"),pattern=r'\r\n|\n|\r'))
+        logger.debug(files)
         return files
 
     def get_source_code(self,file:Union[str,Path],commit:Optional[str]=None)->list[str]:
@@ -365,61 +371,14 @@ class RepoMiner():
     
     def get_file_authors(self):
         pass
-
-    # def get_author_files(self,name:str,email:str,branch:Optional[str]=None)->dict[str,float]:
-    #     authors=[a for a in self.get_author(name) if a.email ==email]
-    #     print(repr(authors[0]))
-    #     args=["--name-only","-w","--pretty=format:%H"]
-    #     aliases_args=["--name-status","-w","--pretty=format:","--diff-filter=R"]
-    #     tracked_files=set(self.get_tracked_files())
-    #     commits_per_file:dict[str,list[str]]=dict(zip(tracked_files,[list() for t in tracked_files]))
-    #     aliases=dict()
-    #     file_doa:dict[str,dict[Author,float]]=dict()
-    #     if branch:
-    #         args.insert(0,branch)
-    #         aliases_args.insert(0,branch)
-    #     else:
-    #         args.insert(0,"--all")
-    #         aliases_args.insert(0,"--all")
-            
-    #     with self.repo_lock:
-    #         aliases_list=[re.split(r'\r\n|\n|\r',c) for c in re.split(r'\n\n',self.git_repo.log(aliases_args))] 
-    #         author_commits=re.split(r'\n\n',self.git_repo.log(args))
-    #     for alias in aliases_list:
-    #         alias=filter(lambda f: f!="",alias)
-    #         for al in alias:
-    #             a,n=al.split('\t')[1:]
-    #             aliases[a]=n
-    #     for commit in author_commits:
-    #         files=re.split(r'\r\n|\n|\r',commit)
-    #         # print(files)
-    #         c_hash=files.pop(0)
-    #         for f in files:
-    #             path=f
-    #             while path not in tracked_files:
-    #                 if path in aliases:
-    #                     path=aliases[path]
-    #                 else:
-    #                     path=None
-    #                     break
-    #             if not path:
-    #                 continue
-    #             commits_per_file[path].append(c_hash)
-    #     for k,v in commits_per_file.items():
-    #         if v:
-    #             result=_calculate_DOA(dict(authors=authors,file_commits=v))
-    #             for author,doa in result.items():
-    #                 file_doa[k]=doa
-    #     return file_doa
     
     def calculate_DL(self,author:Author,filepath:Union[Path,str])->int:
         p=filepath
         if isinstance(filepath,str):
             p=Path(filepath)
-        if not p.is_relative_to(self.repo_path):
+        if not p.as_posix() in self.get_tracked_files():
             raise ValueError("Filepath is not relative to this repository")
-        if author not in self.get_authors():
-            raise ValueError("Author unrecognized for this repository")
+        self.get_author(author.name)#check if author exists
         with self.repo_lock:
             file_commits=set(re.split(r'\r\n|\n|\r',self.git_repo.log(["--pretty=%H","-w","--all","--follow","--",p.as_posix()])))
         author_commit=set(author.commits_authored)
@@ -427,14 +386,12 @@ class RepoMiner():
         return (init_dim-len(author_commit.difference(file_commits)))
     
     def calculate_DOA(self,filepath:Union[Path,str],normalize:bool=True)->dict[Author,float]:
-        
-        
         p=filepath
         if isinstance(filepath,str):
             p=Path(filepath)
         # print(f"Calculating DOA for {p.as_posix()}")
         logger.debug(f"Calculating DOA for {p.as_posix()}")
-        if not self.tree.get(p.as_posix()): #FIXME implement a better control
+        if not p.as_posix() in self.get_tracked_files():
             raise ValueError("Filepath is not relative to this repository")
         with self.repo_lock:
             file_commits=re.split(r'\r\n|\n|\r',self.git_repo.log(["--pretty=%H","-w","--all","--follow","--",p.as_posix()]))
@@ -458,7 +415,8 @@ class RepoMiner():
     #TODO: current implementation is a naive version of AVL algorithm for tf calculation, for future versions taking account of LOCC is advised
     def get_truck_factor(self,suffixes_of_interest:Optional[Iterable[Union[str]]]=set(),doa_threshold:float=0.75,coverage:float=0.5)->tuple[int,dict[Author,dict[str,float]]]:
     # def calculate_DL(self,input_tuple:tuple[Author,list[CommitInfo]])->int:
-        
+        if coverage<0 or doa_threshold<0:
+            raise ValueError("Coverage and threshold values cannot be negative")
         cov=coverage if coverage <=1 else 1/coverage
         doa_th=doa_threshold if doa_threshold<=1 else 1/doa_threshold
         unfiltered_files=self.get_tracked_files()

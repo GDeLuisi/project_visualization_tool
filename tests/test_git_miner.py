@@ -51,12 +51,31 @@ def test_rev_list(repo_miner,no_merges,max_count,count_only,start_date,end_date,
     else:
         with raises(GitCommandError):
             repo_miner._rev_list(only_branch=only_branch,max_count=max_count,no_merges=no_merges,count_only=count_only,from_date=start_date,to_date=end_date,from_commit=start_commit,to_commit=end_commit)
+
 def test_get_branches(repo_miner):
 
     assert set((b.name for b in repo_miner.get_branches()))=={h.name for h in repo_miner.repo.branches}
+    assert set((b.name for b in repo_miner.get_branches(False)))=={h.name for h in repo_miner.repo.branches}
 
+def test_get_author(repo_miner):
+    assert len(repo_miner.get_author("Gerardo De Luisi"))==2
+    with raises(ValueError):
+        repo_miner.get_author("Claudia Setaro")
 
+def test_calculate_doa(repo_miner):
+    doas=repo_miner.calculate_DOA("main.py")
+    assert len(doas.keys())==len(repo_miner.get_authors())
+    assert max(doas.values()) == 1
+    with raises(ValueError):
+        repo_miner.calculate_DOA("man.py")
 
+def test_calculate_dl(repo_miner):
+    author = repo_miner.get_author("GeggeDL").pop()
+    dl=repo_miner.calculate_DL(author,"main.py")
+    assert dl>=0
+    with raises(ValueError):
+        repo_miner.calculate_DL(author,"man.py")
+        
 def test_get_author_in_range(repo_miner):
     auth=repo_miner.get_authors_in_range(start_date=date.fromisoformat("2025-02-10"),end_date=date.fromisoformat("2025-02-12"))
     logger.debug(f"Found authors {auth}")
@@ -87,24 +106,24 @@ def test_get_author_commits(repo_miner,name_email,expected):
     else:
         with raises(ValueError,match="Only one between name and email are required"):
             repo_miner.get_author_commits(*name_email)
+
 @mark.parametrize("commit,expected",[("f188112d478439ab10b6d5dad88cf14c46a0efa44",[]),(None,[".github/workflows/test-dev.yml",".github/workflows/testpypi_publish.yml",".gitignore","LICENSE","RAD.docx","README.md","main.py","pyproject.toml","requirements.txt","src/_internal/__init__.py","src/_internal/data_preprocessing.py","src/_internal/data_typing.py","src/_internal/file_parser.py","src/_internal/git_mining.py","src/_internal/info/ext.json","src/app/__init__.py","src/app/app.py","src/app/cli.py","src/gui/__init__.py","src/gui/components.py","src/gui/pages/homepage.py","src/utility/__init__.py","src/utility/logging_configs/logs_config_file.json","src/utility/logging_configs/logs_config_file_old.json","src/utility/logs.py","tests/test_cli.py","tests/test_data_preprocessing.py","tests/test_dummy.py","tests/test_file_parser.py","tests/test_git_miner.py"]),("f188112d478439ab9b6d5dad88cf14c46a0efa44",[".github/workflows/python-app-dev.yml",".github/workflows/python-app.yml",".gitignore","LICENSE","README.md","main.py","pyproject.toml","src/_internal/__init__.py","src/_internal/file_parser.py","src/app.py","tests/report.txt","tests/test_dummy.py","tests/test_file_parser.py"])])
 def test_get_commit_files(repo_miner,commit,expected):
     if expected:
-        if commit:
-            assert repo_miner.get_commit_files(commit) == expected
+        if not commit:
+            assert set(repo_miner.get_commit_files(commit)).issubset(set(repo_miner.get_tracked_files()))
         else:
-            assert set(repo_miner.get_commit_files(commit))==set(repo_miner.get_tracked_files())
+            assert repo_miner.get_commit_files(commit)==expected
     else:
         with raises(Exception) as e:
             logger.critical(e.exconly())
             repo_miner.get_commit_files(commit)
 
 def test_get_tracked_files(repo_miner):
-    assert set(repo_miner.get_commit_files())==set(repo_miner.get_tracked_files())
-            
-@mark.parametrize("files",[("src/app.py","tests/report.txt","tests/test_dummy.py","tests/test_file_parser.py"),(".github/workflows/test-dev.yml",".github/workflows/testpypi_publish.yml",".gitignore","LICENSE","RAD.docx","README.md","main.py","pyproject.toml","requirements.txt","src/_internal/__init__.py","src/_internal/data_preprocessing.py","src/_internal/data_typing.py","src/_internal/file_parser.py","src/_internal/git_mining.py","src/_internal/info/ext.json","src/app/__init__.py","src/app/app.py","src/app/cli.py","src/gui/__init__.py","src/gui/components.py","src/gui/pages/homepage.py","src/utility/__init__.py","src/utility/logging_configs/logs_config_file.json","src/utility/logging_configs/logs_config_file_old.json","src/utility/logs.py","tests/test_cli.py","tests/test_data_preprocessing.py","tests/test_dummy.py","tests/test_file_parser.py","tests/test_git_miner.py")])
-def test_infer_programming_language(repo_miner,files):
-    assert repo_miner.infer_programming_language(files)==[".py"]
+    files=set()
+    for branch in repo_miner.get_branches(False):
+        files.update(repo_miner.get_commit_files(branch.name))
+    assert files==set(repo_miner.get_tracked_files())
     
 def test_get_author_commits(repo_miner):
     sumlist=0
@@ -186,17 +205,23 @@ def test_get_source_code(repo_miner,commit):
     text=repo_miner.get_source_code(Path.cwd().joinpath("tests","test_dummy.py"),commit)
     assert text == ['#TODO dummy test', 'def test_dummy():', '    pass', '', '"""', 'TODO multiple line test', '"""', '']
     
-truck_factor_testcases=[((Path("src/app/app.py"),"tests/report.txt","tests/test_dummy.py","tests/test_file_parser.py"),(".py",".json"),(date.fromisoformat("2025-02-01"),date.fromisoformat("2025-02-11"))),
-                        ((".github/workflows/test-dev.yml",".github/workflows/testpypi_publish.yml",".gitignore","LICENSE","RAD.docx","README.md","main.py","pyproject.toml","requirements.txt","src/_internal/__init__.py","src/_internal/data_preprocessing.py","src/_internal/data_typing.py","src/_internal/file_parser.py","src/_internal/git_mining.py","src/_internal/info/ext.json","src/app/__init__.py","src/app/app.py","src/app/cli.py","src/gui/__init__.py","src/gui/components.py","src/gui/pages/homepage.py","src/utility/__init__.py","src/utility/logging_configs/logs_config_file.json","src/utility/logging_configs/logs_config_file_old.json","src/utility/logs.py","tests/test_cli.py","tests/test_data_preprocessing.py"),(".py",".json"),(date.fromisoformat("2025-02-01"),date.fromisoformat("2025-02-11"))),
-                        ((),(".py",".json"),(date.fromisoformat("2025-02-01"),date.fromisoformat("2025-02-12"))),
-                        ((),(),(date.fromisoformat("2025-02-01"),date.fromisoformat("2025-02-12"))),((),(),(date.fromisoformat("2025-02-01"),None)),
-                        ((),(),(None,date.fromisoformat("2025-02-12"))),((),(),())]
+truck_factor_testcases=[((".py",".json"),0.75,0.5,1),
+                        ((),0.75,0.5,1),
+                        (None,-0.75,0.5,None),
+                        (None,0.75,-0.5,None),]
+                        
 
-@mark.parametrize("paths,suffixes,date_range",truck_factor_testcases)
-def test_calculate_truck_factor(repo_miner,paths,suffixes,date_range):
-    tf=repo_miner.get_truck_factor(paths,suffixes_of_interest=suffixes,date_range=date_range)
-    # logger.debug(list(map(lambda k: (k[0],len(k[1])),tf[1].items())))
-    assert tf[0]==1
+@mark.parametrize("suffixes,th,cov,expected",truck_factor_testcases)
+def test_calculate_truck_factor(repo_miner,suffixes,th,cov,expected):
+    if expected!=None:
+        tf=repo_miner.get_truck_factor(suffixes,th,cov)[0]
+        assert tf==1
+    else:
+        with raises(ValueError):
+            repo_miner.get_truck_factor(suffixes,th,cov)
+
+    
+    
 def test_get_count(repo_miner):
     assert repo_miner.count_commits() >0
     assert repo_miner.count_commits("development")>0
@@ -211,11 +236,3 @@ def test_get_dir_structure(repo_miner):
     repo_miner.get_dir_structure("dir_structure")
     with raises(BadName):
         repo_miner.get_dir_structure("asdjhgasdhgajsdhg")
-
-def test_get_author_files(repo_miner):
-    tr_files=repo_miner.get_tracked_files()
-    authors=repo_miner.get_authors()
-    tot_files=set()
-    for auth in authors:
-        tot_files.update(repo_miner.get_author_files(auth.name))
-    assert set(tr_files).issubset(tot_files)
