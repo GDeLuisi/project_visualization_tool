@@ -10,7 +10,7 @@ name: Upload Python Package to PyPi
 
 on:
   release:
-    types: [prereleased]
+    types: [released]
   workflow_dispatch:
     inputs:
       release:
