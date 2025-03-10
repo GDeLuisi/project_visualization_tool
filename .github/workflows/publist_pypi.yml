@@ -97,6 +97,7 @@ jobs:
       #
       # ALTERNATIVE: if your GitHub Release name is the PyPI project version string
       # ALTERNATIVE: exactly, uncomment the following line instead:https://test.pypi.org/manage/projects/
+      url: https://pypi.org/project/project_visualization_tool_GDeLuisi/${{needs.release-build.outputs.tag}}_${{matrix.p-version}}
     steps:
       - name: Retrieve release distributions
         uses: actions/download-artifact@v4
