@@ -87,6 +87,7 @@ omit = [
   "main.py",
   "tests.py",
   "src/gui/*"
+  "src/app/app"
 ]
 [project.optional-dependencies]
 # development dependency groups

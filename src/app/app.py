@@ -13,6 +13,7 @@ import numpy as np
 import plotly.express as px
 from src.utility.logs import setup_logging
 import dash_bootstrap_components as dbc
+
 def start_app(repo_path:Union[str|Path],cicd_test:bool,env:bool):
     path=repo_path if isinstance(repo_path,str) else repo_path.as_posix()
     # print(path)
