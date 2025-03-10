@@ -4,31 +4,40 @@ from plotly.express import density_heatmap
 from plotly.graph_objects import Figure
 from git import Commit
 from datetime import date
-def create_start_page():
-    html.Div([
-        
-    ])
-def create_commit_heatmap(commits:Commit,start_date:date,end_date:date):
-    date_picker=DatePickerRange(id="date_picker",start_date=start_date,end_date=end_date)
-    density_heatmap(commits)
-# def create_datepicker(start_date:date,end_date:date)->DatePickerRange:
-#     return DatePickerRange(id="date_picker",start_date=start_date,end_date=end_date)
+from typing import Literal
+SIDING={
+    "right":{
+        "margin-left": "18rem",
+        "margin-right": "2rem"},
+    "left":{
+            "margin-left": "2rem",
+            "margin-right": "18rem",
+        }}
+# the style arguments for the sidebar. We use position:fixed and a fixed width
+SIDEBAR_STYLE = {
+    "position": "fixed",
+    "top": 0,
+    "bottom": 0,
+    "width": "16rem",
+    "padding": "2rem 1rem",
+    "background-color": "#f8f9fa",
+}
 
-# @callback(
-#     Output('output-container-date-picker-range', 'children'),
-#     Input('my-date-picker-range', 'start_date'),
-#     Input('my-date-picker-range', 'end_date'))
-# def update_output(start_date, end_date):
-#     string_prefix = 'You have selected: '
-#     if start_date is not None:
-#         start_date_object = date.fromisoformat(start_date)
-#         start_date_string = start_date_object.strftime('%B %d, %Y')
-#         string_prefix = string_prefix + 'Start Date: ' + start_date_string + ' | '
-#     if end_date is not None:
-#         end_date_object = date.fromisoformat(end_date)
-#         end_date_string = end_date_object.strftime('%B %d, %Y')
-#         string_prefix = string_prefix + 'End Date: ' + end_date_string
-#     if len(string_prefix) == len('You have selected: '):
-#         return 'Select a date to see it displayed here'
-#     else:
-#         return string_prefix
+# the styles for the main content position it to the right of the sidebar and
+# add some padding.
+CONTENT_STYLE = {
+    "margin-left": "18rem",
+    "margin-right": "2rem",
+    "padding": "2rem 1rem",
+}
+
+def sidebar(side:Literal["right","left"]="right")->html.Div:
+    if side != "right" and side != "left":
+        raise ValueError()
+    elif side == "left":
+        SIDEBAR_STYLE["left"]=0
+    else:
+        SIDEBAR_STYLE["right"]=0
+    return html.Div(
+        style=SIDEBAR_STYLE
+    )

@@ -73,7 +73,7 @@ def find_file_comments_with_locations(filename:Union[str,Path])->list[tuple[int,
         raise FileNotFoundError(f"Path {filepath} is not a file or does not exist")
     _, ext = os.path.splitext(filepath)
     
-    with open(filepath, 'r') as file:
+    with open(filepath, 'r',encoding="utf-8") as file:
         content = file.readlines()
         
     return find_comments_with_locations(content,ext=ext)
