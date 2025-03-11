@@ -98,7 +98,7 @@ class RepoMiner():
             commit_range=commit_range+f"..{deafult}"
         return commit_range
     
-    def _rev_list(self,only_branch:Optional[str]=None,max_count:Optional[int]=None,no_merges:bool=True,count_only:bool=False,from_commit:Optional[str]=None,to_commit:Optional[str]=None,from_date:Optional[date]=None,to_date:Optional[date]=None)->list[str]:
+    def _rev_list(self,only_branch:Optional[bool]=None,max_count:Optional[int]=None,no_merges:bool=True,count_only:bool=False,from_commit:Optional[str]=None,to_commit:Optional[str]=None,from_date:Optional[date]=None,to_date:Optional[date]=None)->list[str]:
         arglist=[]
         commit_range=self._load_commits_commit_range(start_commit=from_commit,end_commit=to_commit)
         arglist.append(commit_range)
@@ -317,6 +317,14 @@ class RepoMiner():
                 files.update(re.split(string=self.git_repo.ls_tree(b.name, "-r","--name-only"),pattern=r'\r\n|\n|\r'))
         logger.debug(files)
         return files
+    
+    def get_tracked_dirs(self)->Iterable[str]:
+        files=set()
+        for b in self.get_branches(deep=False):
+            with self.repo_lock:
+                files.update(re.split(string=self.git_repo.ls_tree(b.name, "-r","-d","--name-only"),pattern=r'\r\n|\n|\r'))
+        logger.debug(files)
+        return files
 
     def get_source_code(self,file:Union[str,Path],commit:Optional[str]=None)->list[str]:
         '''
@@ -376,7 +384,7 @@ class RepoMiner():
         p=filepath
         if isinstance(filepath,str):
             p=Path(filepath)
-        if not p.as_posix() in self.get_tracked_files():
+        if not (p.as_posix() in self.get_tracked_files() or p.as_posix() in self.get_tracked_dirs()):
             raise ValueError("Filepath is not relative to this repository")
         self.get_author(author.name)#check if author exists
         with self.repo_lock:
@@ -391,7 +399,7 @@ class RepoMiner():
             p=Path(filepath)
         # print(f"Calculating DOA for {p.as_posix()}")
         logger.debug(f"Calculating DOA for {p.as_posix()}")
-        if not p.as_posix() in self.get_tracked_files():
+        if not (p.as_posix() in self.get_tracked_files() or p.as_posix() in self.get_tracked_dirs()):
             raise ValueError("Filepath is not relative to this repository")
         with self.repo_lock:
             file_commits=re.split(r'\r\n|\n|\r',self.git_repo.log(["--pretty=%H","-w","--all","--follow","--",p.as_posix()]))

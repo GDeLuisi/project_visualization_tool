@@ -37,7 +37,7 @@ stack=dbc.Stack(id="stack_info",className="p-2 h-75",children=[
                                 ],className="py-2"),
                         dbc.Row([
                                 dbc.Col(
-                                        children=[html.Div([dbc.Label(["Degree of Authorship(DOA) threshold picker"]),dcc.Slider(id="doa_picker",min=0,max=1,step=0.05,value=0.75)]),],
+                                        children=[html.Div([dbc.Label(["Degree of Authorship(DOA) threshold picker"]),dcc.Slider(id="doa_picker",min=0,max=1,included=True,step=0.05,value=0.75,marks={"0":"0","1":"1","0.75":"0.75","0.5":"0.5","0.25":"0.25",},tooltip={"placement":"bottom","always_visible":True})]),],
                                         width=12),
                                 ],className="py-2"),
                         dbc.Row([
@@ -148,25 +148,29 @@ def populate_file_info(data,path,cache,children):
         if not data:
                 return no_update,no_update,no_update,no_update
         file=data["points"][0]["id"]
+        # print(data)
         if children==file:
-                return "invisible",no_update,no_update,no_update
+                return "invisible",[],no_update,""
         if file in cache:
                 doas=cache[file]
         else:
                 rp=RepoMiner(path)
                 doas=rp.calculate_DOA(file)
-                nd=dict()
+                nd:dict[str,float]=dict()
                 for k,v in doas.items():
-                        nd[f"{k.name}{k.email}"]=v
+                        nd[f"{k.name}|{k.email}"]=v
                 cache[file]=nd
+                doas=nd
         ordered_doas=sorted(((k,round(v,2)) for k,v in doas.items()),reverse=True,key=lambda item:item[1])[:3]
         
         div_children=[html.H4(f"Top 3 module contributors")]
         for i,(k,v) in enumerate(ordered_doas,1):
+                name,email=k.split('|')
                 div_children.append(html.P(
-                        f"{i}° {k.name} <{k.email}> with normalized DOA {v}"
+                        f"{i}° {name} <{email}> with normalized DOA {v}"
                 ))
         div = html.Div(children=div_children)
+
         return "visible",div,cache,file
 
 @callback(
