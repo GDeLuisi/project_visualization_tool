@@ -125,6 +125,9 @@ def test_get_tracked_files(repo_miner):
         files.update(repo_miner.get_commit_files(branch.name))
     assert files==set(repo_miner.get_tracked_files())
     
+def test_get_tracked_dirs(repo_miner):
+    assert {d for d in Path.cwd().iterdir() if d.is_dir()}.issubset(repo_miner.get_tracked_dirs())
+    
 def test_get_author_commits(repo_miner):
     sumlist=0
     for author in repo_miner.get_authors():

@@ -317,6 +317,14 @@ class RepoMiner():
                 files.update(re.split(string=self.git_repo.ls_tree(b.name, "-r","--name-only"),pattern=r'\r\n|\n|\r'))
         logger.debug(files)
         return files
+    
+    def get_tracked_dirs(self)->Iterable[str]:
+        files=set()
+        for b in self.get_branches(deep=False):
+            with self.repo_lock:
+                files.update(re.split(string=self.git_repo.ls_tree(b.name, "-r","-d","--name-only"),pattern=r'\r\n|\n|\r'))
+        logger.debug(files)
+        return files
 
     def get_source_code(self,file:Union[str,Path],commit:Optional[str]=None)->list[str]:
         '''
