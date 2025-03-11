@@ -37,7 +37,7 @@ stack=dbc.Stack(id="stack_info",className="p-2 h-75",children=[
                                 ],className="py-2"),
                         dbc.Row([
                                 dbc.Col(
-                                        children=[html.Div([dbc.Label(["Degree of Authorship(DOA) threshold picker"]),dcc.Slider(id="doa_picker",min=0,max=1,step=0.05,value=0.75)]),],
+                                        children=[html.Div([dbc.Label(["Degree of Authorship(DOA) threshold picker"]),dcc.Slider(id="doa_picker",min=0,max=1,included=True,step=0.05,value=0.75,marks={"0":"0","1":"1","0.75":"0.75","0.5":"0.5","0.25":"0.25",},tooltip={"placement":"bottom","always_visible":True})]),],
                                         width=12),
                                 ],className="py-2"),
                         dbc.Row([
