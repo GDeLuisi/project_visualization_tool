@@ -384,7 +384,7 @@ class RepoMiner():
         p=filepath
         if isinstance(filepath,str):
             p=Path(filepath)
-        if not p.as_posix() in self.get_tracked_files():
+        if not (p.as_posix() in self.get_tracked_files() or p.as_posix() in self.get_tracked_dirs()):
             raise ValueError("Filepath is not relative to this repository")
         self.get_author(author.name)#check if author exists
         with self.repo_lock:
@@ -399,7 +399,7 @@ class RepoMiner():
             p=Path(filepath)
         # print(f"Calculating DOA for {p.as_posix()}")
         logger.debug(f"Calculating DOA for {p.as_posix()}")
-        if not p.as_posix() in self.get_tracked_files():
+        if not (p.as_posix() in self.get_tracked_files() or p.as_posix() in self.get_tracked_dirs()):
             raise ValueError("Filepath is not relative to this repository")
         with self.repo_lock:
             file_commits=re.split(r'\r\n|\n|\r',self.git_repo.log(["--pretty=%H","-w","--all","--follow","--",p.as_posix()]))
