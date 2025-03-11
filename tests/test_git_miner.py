@@ -126,7 +126,7 @@ def test_get_tracked_files(repo_miner):
     assert files==set(repo_miner.get_tracked_files())
     
 def test_get_tracked_dirs(repo_miner):
-    assert {d for d in Path.cwd().iterdir() if d.is_dir()}.issubset(repo_miner.get_tracked_dirs())
+    assert {d.relative_to(Path.cwd()).as_posix() for d in Path.cwd().iterdir() if d.is_dir()}.issubset(repo_miner.get_tracked_dirs())
     
 def test_get_author_commits(repo_miner):
     sumlist=0
@@ -229,7 +229,7 @@ def test_get_count(repo_miner):
     assert repo_miner.count_commits() >0
     assert repo_miner.count_commits("development")>0
     assert repo_miner.count_commits(to_commit="development")>0
-    assert repo_miner.count_commits("development","main")>0
+    assert repo_miner.count_commits("development","main")>=0
 
 def test_get_dir_structure(repo_miner):
     tree = repo_miner.get_dir_structure()

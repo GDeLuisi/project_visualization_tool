@@ -98,7 +98,7 @@ class RepoMiner():
             commit_range=commit_range+f"..{deafult}"
         return commit_range
     
-    def _rev_list(self,only_branch:Optional[str]=None,max_count:Optional[int]=None,no_merges:bool=True,count_only:bool=False,from_commit:Optional[str]=None,to_commit:Optional[str]=None,from_date:Optional[date]=None,to_date:Optional[date]=None)->list[str]:
+    def _rev_list(self,only_branch:Optional[bool]=None,max_count:Optional[int]=None,no_merges:bool=True,count_only:bool=False,from_commit:Optional[str]=None,to_commit:Optional[str]=None,from_date:Optional[date]=None,to_date:Optional[date]=None)->list[str]:
         arglist=[]
         commit_range=self._load_commits_commit_range(start_commit=from_commit,end_commit=to_commit)
         arglist.append(commit_range)
