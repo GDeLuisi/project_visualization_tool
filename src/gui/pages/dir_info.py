@@ -107,7 +107,7 @@ def populate_treemap(_,b,name,email,doa,data,cache):
         rp=RepoMiner(data)
         author_doas=None
         if name and email:
-                author=f"{name}{email}"
+                author=f"{name}|{email}"
                 author_doas=cache[author]
         tree = rp.get_dir_structure(b)
         df=tree.get_treemap()

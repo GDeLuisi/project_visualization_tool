@@ -103,7 +103,7 @@ def listen_data(_,data,cache):
         # set_props("author_loader_graph",{"display":"auto"})
         # set_props("author_loader",{"display":"auto"})
         tr_fa,contributions=result.result()
-        contributions=dict([(f"{a.name}{a.email}",c) for a,c in contributions.items()])
+        contributions=dict([(f"{a.name}|{a.email}",c) for a,c in contributions.items()])
         return commit_df.to_dict("records"),tr_fa,contributions,authors.to_dict("records")
 
 @callback(
