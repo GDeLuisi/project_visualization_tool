@@ -24,44 +24,43 @@ truck_facto_modal=dbc.Modal(
 )
 layout = dbc.Container([
         truck_facto_modal,
-        html.H1("General Overview"),
-        html.Br(),
         dbc.Row(id="repo_graph_row",children=[
                 dbc.Col(
+                        [       
+                                dcc.Loading([
+                                        dbc.Container(id="general_info"),
+                                ])
+                                
+                        ]
+                ,width=4,align="start"
+                ),
+                dbc.Col(
                         [
-                                html.Div([
-                                        dbc.Label(["Display mode picker"],html_for="x_picker",check=True),
-                                        dcc.RadioItems(id="x_picker",options=[{"label":"Day of week","value":"dow"},{"label":"Per date","value":"date"}],value="dow",inline=True,labelClassName="px-2"),
-                                        ]),
+                                dcc.Loading([
+                                        dbc.Container(id="truck_info"),
+                                ])
+                        ]
+                ,width=4,align="start"
+                ),
+                dbc.Col(
+                        [
+                                html.Div(id="contribution_info"),
+                        ]
+                ,width=4,align="start"
+                ),
+                ]),
+        dbc.Row(id="author_graph_row",children=[
+                dbc.Col(
+                        [
                                 dcc.Loading(id="author_loader_graph",
                                 children=[dcc.Graph(id="graph",className="h-100")],
                                 overlay_style={"visibility":"visible", "filter": "blur(2px)"},
                         ),
-                        ],width=8,align="end"),
-                dbc.Col(
-                        [       
-                                dcc.Loading(id="truck_factor_loader",
-                                children=[
-                                                dbc.Card([
-                                                        dbc.CardHeader(id="truck_factor_header"),
-                                                        dbc.CardBody(id="truck_factor"),
-                                                        dbc.CardFooter([dbc.Button(["More info"],id="truck_factor_info")])
-                                                ])
-                                        ],
-                                overlay_style={"visibility":"visible", "filter": "blur(2px)"},
-                        ),
-                        ],width=4,align="center"),
-                ],justify="center"),
-        dbc.Row(id="author_graph_row",children=[
-
-                dbc.Col([
-                        dcc.Loading(id="author_loader",children=[
-                                dcc.Graph(id="author_graph")
-                                ],
-                                overlay_style={"visibility":"visible", "filter": "blur(2px)"},
-                                ),
-                        dcc.Slider(id="date_slider",marks=None, tooltip={"placement": "bottom", "always_visible": True,"transform": "timestampToUTC"},),
-                        ],width=8),
+                                html.Div([
+                                        dcc.RadioItems(id="x_picker",options=[{"label":"Day of week","value":"dow"},{"label":"Per date","value":"date"}],value="dow",inline=True,labelClassName="px-2"),
+                                        ]),
+                        ],width=8,align="center"),
+                
                 dbc.Col([
                         dcc.Loading(id="author_overview_loader",children=[
                                         dcc.Graph(id="author_overview")
@@ -69,18 +68,81 @@ layout = dbc.Container([
                                 overlay_style={"visibility":"visible", "filter": "blur(2px)"},
                                 ),
                         ],width=4),
-                ]),
+                ],justify="center"),
+        dbc.Row([
+                dbc.Col([
+                        dcc.Loading(id="author_loader",children=[
+                                dcc.Graph(id="author_graph")
+                                ],
+                                overlay_style={"visibility":"visible", "filter": "blur(2px)"},
+                                ),
+                        dcc.Slider(id="date_slider",marks=None, tooltip={"placement": "bottom", "always_visible": True,"transform": "timestampToUTC"},),
+                        ],width=12),
+        ])
+        
         # html.Div(id="test-div")
 ],fluid=True,className="p-10")
 @callback(
-        Output("truck_factor_modal","is_open"),
-        Input("truck_factor_info","n_clicks"),
-        prevent_initial_call=True
+        Output("general_info","children"),
+        Input("branch_picker","value"),
+        Input("authors_cache","data"),
+        State("repo_path","data"),
 )
-def open_truck_modal(_):
-        if _==0:
-                return no_update
-        return True
+def populate_generale_info(branch,authors,path,):
+        rp=RepoMiner(path)
+        num_commits=rp.count_commits()
+        current_head=rp.repo.active_branch.name if not branch else branch
+        df_authors=pd.DataFrame(authors)
+        num_authors=df_authors["name"].size
+        current_commit=rp.get_commit(commit_hash=branch if branch else None)
+        
+        div=html.Div(
+                [
+                        html.I(className="bi bi-git pe-1 d-inline h2"),html.Span("General overview",className="fw-bold h2"),
+                        html.Br(),
+                        html.I(className="bi bi-graph-up pe-1 d-inline ms-2"),html.Span(f"Total number of commits: {num_commits}"),html.Br(),
+                        html.I(className="bi bi-pen-fill d-inline ms-2"),html.Span(f"Total number of authors: {num_authors}"),html.Br(),
+                        # html.I(className="bi bi-truck pe-1 d-inline"),html.Span("Truck factor: "+str(tf)),html.Br(),
+                        html.I(className="bi bi-signpost-split-fill pe-1 d-inline ms-2"),html.Span(f"Current head of repository: {current_head}"),html.Br(),
+                        html.I(className="bi bi-code-slash pe-1 d-inline ms-2"),html.Span(f"Last reachable commit: {current_commit.abbr_hash} , {current_commit.subject}"),html.Br(),
+                ]
+        )
+        return div
+
+@callback(
+        Output("truck_info","children"),
+        Input("truck_cache","data"),
+        State("contribution_cache","data"),
+)
+def populate_generale_info(tf,contributions):
+        sum_doa=0
+        count=0
+        for nm,c in contributions.items():
+                for file,doa in c.items():
+                        sum_doa+=doa
+                        count+=1
+        avg_doa=round(float(sum_doa/count),2)
+        div=html.Div(
+                [       
+                        html.I(className="bi bi-truck pe-1 d-inline h2"),html.Span("Truck factor",className="fw-bold h2"),
+                        html.Br(),
+                        html.Span("Calculated value: "+str(tf),className="ms-2"),html.Br(),
+                        html.Span("Project's files' avarage DOA: "+str(avg_doa),className="ms-2"),html.Br(),
+                        html.Span("Number of analyzed files: "+str(int(count/len(contributions.keys()))),className="ms-2"),html.Br(),
+                ]
+        )
+        return div
+
+# @callback(
+#         Output("truck_factor_modal","is_open"),
+#         Input("truck_factor_info","n_clicks"),
+#         prevent_initial_call=True
+# )
+# def open_truck_modal(_):
+#         if _==0:
+#                 return no_update
+#         return True
+
 @callback(
         Output("graph","figure"),
         Input("x_picker","value"),
@@ -116,14 +178,10 @@ def update_pie_graph(data):
         return fig
 
 @callback(
-        Output("truck_factor_header","children"),
-        Output("truck_factor","children"),
-        Input("truck_cache","data"),
-        State("repo_path","data"),
-        State("contribution_cache","data")
+        Output("contribution_info","children"),
+        Input("contribution_cache","data"),
 )
-def populate_truck_factor(tf,pr,contributions):
-        pr_name=Path(pr).name
+def populate_contributors(contributions):
         contrs:dict[str,Iterable[str]]=dict()
         th=0.75
         for nm,c in contributions.items():
@@ -133,49 +191,59 @@ def populate_truck_factor(tf,pr,contributions):
                                 contrs[nm].append(file)
         contrs=sorted([(ne,files) for ne,files in contrs.items()] ,key=lambda t:len(t[1]),reverse=True)
         contrs=contrs[:3] if len(contrs)>=3 else contrs
-        contributors=[
-                html.H3(f"The project's truck factor amounts at {tf}"),
-                html.Br(),
-                html.H4(f"Your project's top {len(contrs)} contributors:")
+        contributors=[html.I(className="bi bi-trophy-fill d-inline h3 pe-1"),
+                html.H4(f"Your project's top {len(contrs)} contributors:",className="d-inline fw-bold")
         ]
+        i=1
         for nm,c in contrs:
                 name,email=nm.split("|")
-                contributors.append(html.P(f"Author {name} <{email}> with {len(c)} files authored"))
+                cont_div=html.Div([
+                        html.I(className=f"bi bi-{i}-square d-inline px-2"),
+                        html.P(["Author ",
+                                html.Strong(f"{name} <{email}> "),
+                                html.Span("with "),
+                                html.Strong(f"{len(c)} "),
+                                html.Span("files authored")]
+                                ,className="d-inline")
+                ],className="py-1")
+                i+=1
+                contributors.append(cont_div)
         div = html.Div(contributors)
         
-        return html.H2(f"Truck factor for project {pr_name}"),div
+        return div
 
 @callback(
         Output("author_graph","figure"),
         Output("author_loader","display"),
+        Input("branch_cache","data"),
+        Input("date_slider","value"),
+)
+def populate_author_graph(data,value):
+        if not value:
+                return no_update,no_update
+        df=pd.DataFrame(data)
+        df["date"]=pd.to_datetime(df["date"])
+        dt=unixToDatetime(value if isinstance(value,int) else value[0])
+        # print(count_df["date"].tolist())
+        df=df.loc[df["date"].dt.date <= dt.date()]
+        count_df=df.groupby(["author_name"]).size().reset_index(name="commit_count")
+        fig=px.bar(count_df,x="commit_count",y="author_name",labels=common_labels,title="Authors effort over time",color="author_name")
+        return fig,"auto"
+
+@callback(
         Output("date_slider","min"),
         Output("date_slider","max"),
         Output("date_slider","value"),
         Output("date_slider","marks"),
         Input("branch_cache","data"),
-        Input("date_slider","value"),
-
 )
-def populate_author_graph(data,value):
+def adjust_date_slider(data):
         df=pd.DataFrame(data)
         df["date"]=pd.to_datetime(df["date"])
-        triggerer=ctx.triggered_id
-        if triggerer!= "date_slider":
-                min_date=df["date"].min()
-                max_date=df["date"].max()
-                min=unixTimeMillis(min_date)#the first date
-                max=unixTimeMillis(max_date)#the last date
-                value=int(max-(max-min)/2)#default: the first
-                marks=getMaxMinMarks(min_date,max_date)
-                dt=unixToDatetime(value if isinstance(value,int) else value[0])
-                # print(count_df["date"].tolist())
-                df=df.loc[df["date"].dt.date <= dt.date()]
-                count_df=df.groupby(["author_name"]).size().reset_index(name="commit_count")
-                fig=px.bar(count_df,x="commit_count",y="author_name",labels=common_labels,title="Author commits effort",color="author_name")
-                return fig,"auto",min,max,value,marks
-        dt=unixToDatetime(value if isinstance(value,int) else value[0])
-        # print(count_df["date"].tolist())
-        df=df.loc[df["date"].dt.date <= dt.date()]
-        count_df=df.groupby(["author_name"]).size().reset_index(name="commit_count")
-        fig=px.bar(count_df,x="commit_count",y="author_name",labels=common_labels,title="Author commits effort",color="author_name")
-        return fig,"auto",no_update,no_update,no_update,no_update
+        min_date=df["date"].min()
+        max_date=df["date"].max()
+        min=unixTimeMillis(min_date)#the first date
+        max=unixTimeMillis(max_date)#the last date
+        value=int(max-(max-min)/2)#default: the first
+        marks=getMaxMinMarks(min_date,max_date)
+        return min,max,value,marks

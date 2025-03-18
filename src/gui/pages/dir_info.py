@@ -3,7 +3,6 @@ from dash import dcc,callback,Input,Output,no_update,set_props,State,clientside_
 from src._internal import RepoMiner,make_commit_dataframe,prune_common_commits,getMaxMinMarks,unixTimeMillis,unixToDatetime
 import dash.html as html
 from datetime import date
-from src.gui.components import sidebar
 import plotly.express as px
 import pandas as pd
 from pathlib import Path
