@@ -86,6 +86,8 @@ class File(DataFrameAdapter):
         return value.hash_string==self.hash_string
     def __hash__(self):
         return self.hash_string.__hash__()
+    
+
 @dataclass
 class Folder(DataFrameAdapter):
     name:str
@@ -125,8 +127,8 @@ class TreeStructure(DataFrameAdapter):
     def get_dataframe(self):
         return self.base.get_dataframe()
     
-    def get_treemap(self):
-        dat_dict:dict[str,Union[Folder,File]]=dict(parent=[],child=[],name=[],type=[],id=[])
+    def get_treemap(self)->dict[str,list[str]]:
+        dat_dict:dict[str,list[str]]=dict(parent=[],child=[],name=[],type=[],id=[])
         for path,o in self.walk():
             dat_dict["parent"].append(path if path else "")
             dat_dict["name"].append(o.name)
