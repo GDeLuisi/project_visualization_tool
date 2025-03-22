@@ -6,12 +6,7 @@ from pathlib import Path
 from waitress import serve,server
 from concurrent.futures import ThreadPoolExecutor
 from src._internal import RepoMiner
-from time import strptime,strftime
-import json
 import pandas as pd
-import numpy as np
-import plotly.express as px
-from src.utility.logs import setup_logging
 import dash_bootstrap_components as dbc
 import re
 
@@ -24,7 +19,7 @@ def start_app(repo_path:Union[str|Path],cicd_test:bool,env:bool):
         children=[
             dbc.NavItem(dbc.NavLink("Home", href="/")),
             dbc.NavItem(dbc.NavLink("Directory analysis", href="/dir")),
-            dbc.Button(id="reload_button",children=[html.I(className="bi bi-arrow-counterclockwise p-1")],className="p1 bg-transparent border-0"),
+            dbc.Button(id="reload_button",children=[html.I(className="bi bi-arrow-counterclockwise p-1")],className="p1 bg-transparent border-0",value=0),
             dbc.Button(id="open_info",children=[html.I(className="bi bi-list p-1")],className="p1 bg-transparent border-0"),
         ],
         brand="Project Visualization Tool",

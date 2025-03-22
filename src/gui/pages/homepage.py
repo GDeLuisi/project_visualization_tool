@@ -1,5 +1,5 @@
 import dash
-from dash import dcc,callback,Input,Output,no_update,set_props,State,clientside_callback,Patch,ctx
+from dash import dcc,callback,Input,Output,no_update,set_props,State,clientside_callback,Patch,ctx,MATCH
 from src._internal import RepoMiner,make_commit_dataframe,prune_common_commits,getMaxMinMarks,unixTimeMillis,unixToDatetime
 from typing import Iterable
 import dash.html as html
@@ -12,6 +12,8 @@ import dash_bootstrap_components as dbc
 from io import StringIO
 import json
 import time
+from src.gui import AuthorDisplayerAIO
+
 from logging import getLogger
 logger=getLogger("mainpage")
 dash.register_page(__name__,"/")
@@ -44,7 +46,9 @@ layout = dbc.Container([
                 ),
                 dbc.Col(
                         [
-                                html.Div(id="contribution_info"),
+                                
+                        dbc.Container(id="contribution_info"),
+                                
                         ]
                 ,width=4,align="start"
                 ),
@@ -76,7 +80,7 @@ layout = dbc.Container([
                                 ],
                                 overlay_style={"visibility":"visible", "filter": "blur(2px)"},
                                 ),
-                        dcc.Slider(id="date_slider",marks=None, tooltip={"placement": "bottom", "always_visible": True,"transform": "timestampToUTC"},),
+                        dcc.Slider(id="date_slider",marks=None, tooltip={"placement": "bottom", "always_visible": False,"transform": "timestampToUTC"},),
                         ],width=12),
         ])
         
@@ -95,26 +99,25 @@ def populate_generale_info(branch,authors,path,):
         df_authors=pd.DataFrame(authors)
         num_authors=df_authors["name"].size
         current_commit=rp.get_commit(commit_hash=branch if branch else None)
-        
-        div=html.Div(
+        div=dbc.ListGroup(
                 [
-                        html.I(className="bi bi-git pe-1 d-inline h2"),html.Span("General overview",className="fw-bold h2"),
-                        html.Br(),
-                        html.I(className="bi bi-graph-up pe-1 d-inline ms-2"),html.Span(f"Total number of commits: {num_commits}"),html.Br(),
-                        html.I(className="bi bi-pen-fill d-inline ms-2"),html.Span(f"Total number of authors: {num_authors}"),html.Br(),
-                        # html.I(className="bi bi-truck pe-1 d-inline"),html.Span("Truck factor: "+str(tf)),html.Br(),
-                        html.I(className="bi bi-signpost-split-fill pe-1 d-inline ms-2"),html.Span(f"Current head of repository: {current_head}"),html.Br(),
-                        html.I(className="bi bi-code-slash pe-1 d-inline ms-2"),html.Span(f"Last reachable commit: {current_commit.abbr_hash} , {current_commit.subject}"),html.Br(),
+                        dbc.ListGroupItem([html.I(className="bi bi-graph-up pe-3 d-inline ms-2"),html.Span(f"Total number of commits: {num_commits}")]),
+                        dbc.ListGroupItem([html.I(className="bi bi-pen-fill d-inline ms-2 pe-3"),html.Span(f"Total number of authors: {num_authors}")]),
+                        dbc.ListGroupItem([html.I(className="bi bi-signpost-split-fill pe-3 d-inline ms-2"),html.Span(f"Current head of repository: {current_head}")]),
+                        dbc.ListGroupItem([html.I(className="bi bi-code-slash pe-3 d-inline ms-2"),html.Span(f"Last reachable commit: {current_commit.abbr_hash} , {current_commit.subject}")])
                 ]
-        )
-        return div
+        ,class_name=" py-3",flush=True)
+        return html.Div([
+                html.I(className="bi bi-git pe-3 d-inline h2"),html.Span("General overview",className="fw-bold h2"),html.Br(),
+                div
+        ])
 
 @callback(
         Output("truck_info","children"),
         Input("truck_cache","data"),
         State("contribution_cache","data"),
 )
-def populate_generale_info(tf,contributions):
+def populate_truck_info(tf,contributions):
         sum_doa=0
         count=0
         for nm,c in contributions.items():
@@ -122,16 +125,17 @@ def populate_generale_info(tf,contributions):
                         sum_doa+=doa
                         count+=1
         avg_doa=round(float(sum_doa/count),2)
-        div=html.Div(
+        div=dbc.ListGroup(
                 [       
-                        html.I(className="bi bi-truck pe-1 d-inline h2"),html.Span("Truck factor",className="fw-bold h2"),
-                        html.Br(),
-                        html.Span("Calculated value: "+str(tf),className="ms-2"),html.Br(),
-                        html.Span("Project's files' avarage DOA: "+str(avg_doa),className="ms-2"),html.Br(),
-                        html.Span("Number of analyzed files: "+str(int(count/len(contributions.keys()))),className="ms-2"),html.Br(),
+                        dbc.ListGroupItem([html.Span("Calculated value: "+str(tf),className="ms-2"),html.Br(),]),
+                        dbc.ListGroupItem([html.Span("Project's files' avarage DOA: "+str(avg_doa),className="ms-2"),html.Br(),]),
+                        dbc.ListGroupItem([html.Span("Number of analyzed files: "+str(int(count/len(contributions.keys()))),className="ms-2"),html.Br(),])
                 ]
-        )
-        return div
+        ,class_name=" py-3",flush=True)
+        return html.Div([
+                html.I(className="bi bi-truck pe-3 d-inline h2"),html.Span("Truck factor",className="fw-bold h2"),
+                div
+        ])
 
 # @callback(
 #         Output("truck_factor_modal","is_open"),
@@ -139,8 +143,6 @@ def populate_generale_info(tf,contributions):
 #         prevent_initial_call=True
 # )
 # def open_truck_modal(_):
-#         if _==0:
-#                 return no_update
 #         return True
 
 @callback(
@@ -180,9 +182,11 @@ def update_pie_graph(data):
 @callback(
         Output("contribution_info","children"),
         Input("contribution_cache","data"),
+        State("authors_cache","data")
 )
-def populate_contributors(contributions):
+def populate_contributors(contributions,authors):
         contrs:dict[str,Iterable[str]]=dict()
+        auth_df=pd.DataFrame(authors)
         th=0.75
         for nm,c in contributions.items():
                 contrs[nm]=list()
@@ -191,27 +195,37 @@ def populate_contributors(contributions):
                                 contrs[nm].append(file)
         contrs=sorted([(ne,files) for ne,files in contrs.items()] ,key=lambda t:len(t[1]),reverse=True)
         contrs=contrs[:3] if len(contrs)>=3 else contrs
-        contributors=[html.I(className="bi bi-trophy-fill d-inline h3 pe-1"),
+        contributors=[html.I(className="bi bi-trophy-fill d-inline h3 pe-3"),
                 html.H4(f"Your project's top {len(contrs)} contributors:",className="d-inline fw-bold")
         ]
         i=1
+        list_items=[]
         for nm,c in contrs:
                 name,email=nm.split("|")
-                cont_div=html.Div([
-                        html.I(className=f"bi bi-{i}-square d-inline px-2"),
-                        html.P(["Author ",
-                                html.Strong(f"{name} <{email}> "),
-                                html.Span("with "),
-                                html.Strong(f"{len(c)} "),
-                                html.Span("files authored")]
-                                ,className="d-inline")
+                at=auth_df.loc[(auth_df["name"]==name) & (auth_df["email"]==email)]
+                nd=AuthorDisplayerAIO(Author(at["email"].values[0],at["name"].values[0],at["commits_authored"].values[0]),c,span_props=dict(className="fw-bold ",style={"cursor":"pointer"})).create_comp()
+                # nd=html.Div()
+                cont_div=dbc.ListGroupItem([
+                        nd
                 ],className="py-1")
                 i+=1
-                contributors.append(cont_div)
-        div = html.Div(contributors)
+                list_items.append(cont_div)
+        list_group = dbc.ListGroup(
+        list_items,
+        numbered=True,
+        class_name=" py-3",flush=True
+        )
+        div = html.Div([*contributors,list_group])
         
         return div
 
+# @callback(
+#         Output({"type":"author_modal","index":MATCH},"is_open"),
+#         Input({"type":"author_modal_btn","index":MATCH},"n_clicks"),
+#         prevent_initial_call=True
+#         )
+# def open_author_modal(_):
+#         return True
 @callback(
         Output("author_graph","figure"),
         Output("author_loader","display"),
