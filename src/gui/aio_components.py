@@ -157,7 +157,6 @@ class SATDDisplayerAIO():
         self,
         file:str,
         satds:dict[int,str]={},
-        elements_per_page:int=5,
         text:str="",
         modal_props:dict=None,
         span_props:dict=None,
@@ -187,10 +186,10 @@ class SATDDisplayerAIO():
             dbc.Modal([
                 dbc.ModalBody([
                     dbc.Container([
-                        html.P(id=self.satd_ids.content(aio_id+"_table"))
+                        html.P(id=self.satd_ids.content(aio_id+"_table"),style={"overflow": "hidden","word-wrap":"break-word"})
                     ]),
                 ])
-                ],id=self.satd_ids.modal(aio_id+"_table"),is_open=False),
+                ],id=self.satd_ids.modal(aio_id+"_table"),is_open=False,scrollable=True),
             dbc.Modal([
                 dbc.ModalHeader([html.I(className="bi bi-wrench h3 pe-3"),html.Span(f"{file} SATDs",className="fw-bold")]),
                 dbc.ModalBody([
