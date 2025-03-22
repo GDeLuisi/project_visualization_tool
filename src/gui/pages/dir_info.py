@@ -14,6 +14,7 @@ import time
 from typing import Union
 from src._internal import find_satd
 from logging import getLogger
+from src.gui import SATDDisplayerAIO
 logger=getLogger("mainpage")
 dash.register_page(__name__,"/dir")
 
@@ -138,18 +139,19 @@ def open_graph_filtering_collapse(_):
 )
 def find_setd_files(cache:dict[str,str],path):
         rp=RepoMiner(path)
-        buttons:list[dbc.Button]=list()
+        buttons:list[html.Span]=list()
         for p,o in cache.items():
                 # print(p)
-                setds:dict[int,str]=find_satd(rp.get_source(o),Path(p).suffix)
-                if len(setds)>0:
-                        buttons.append(dbc.Button(id={"type":"setd_button","index":p},children=p,color="link"))
-                        buttons.append(dbc.Modal([
-                                dbc.ModalHeader(),
-                                dbc.ModalBody([
-                                html.P(f"#{line} >> {setd}") for line,setd in setds.items()
-                                ]),
-                        ],{"type":"setd_modal","index":p},is_open=False))
+                satds:dict[int,str]=find_satd(rp.get_source(o),Path(p).suffix)
+                if len(satds)>0:
+                        buttons.append(SATDDisplayerAIO(p,satds,span_props=dict(className="fw-bold ",style={"cursor":"pointer"}),modal_props={"fullscreen":True}).create_comp())
+                        # buttons.append(dbc.Button(id={"type":"setd_button","index":p},children=p,color="link"))
+                        # buttons.append(dbc.Modal([
+                        #         dbc.ModalHeader(),
+                        #         dbc.ModalBody([
+                        #         html.P(f"#{line} >> {setd}") for line,setd in setds.items()
+                        #         ]),
+                        # ],{"type":"setd_modal","index":p},is_open=False))
         return buttons
 
 @callback(
