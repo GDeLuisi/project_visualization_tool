@@ -220,7 +220,7 @@ class RepoMiner():
     def count_commits(self,from_commit:Optional[str]=None,to_commit:Optional[str]=None):
         count=0
         try:
-            count=int( self._rev_list(only_branch=to_commit !=None,count_only=True,to_commit=to_commit,from_commit=from_commit)[0] )
+            count=int( self._rev_list(only_branch=to_commit !=None,count_only=True,to_commit=to_commit,from_commit=from_commit,no_merges=False)[0] )
             
         except exc.GitCommandError():
             logger.error("Branch not found")

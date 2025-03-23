@@ -32,8 +32,7 @@ class DataFrameAdapter():
         for k,v in var_dict.items():
             var_dict[k]=[v]
         df=pd.DataFrame(var_dict)
-        return df
-    
+        return df        
 class JSONSerializebleAdapter():
     def __init__(self):
         pass
