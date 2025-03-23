@@ -15,9 +15,10 @@ from typing import Union
 from src._internal import find_satd
 from logging import getLogger
 from src.gui import SATDDisplayerAIO
+from math import ceil
 logger=getLogger("mainpage")
 dash.register_page(__name__,"/dir")
-
+items_per_page=5 #TODO make it configurable by user
 stack=dbc.Stack(id="stack_info",className="p-2 h-75",children=[
         
         dbc.Card(
@@ -28,13 +29,14 @@ stack=dbc.Stack(id="stack_info",className="p-2 h-75",children=[
                         [
                         dbc.Container([
                                 dcc.Loading([
-                                html.Div(
-                                        id="setd_files",children=[
+                                dbc.Pagination(id="satd_pagination",min_value=1,max_value=1,fully_expanded=False,first_last=True,previous_next=True,active_page=1),
+                                dbc.ListGroup(
+                                        id="satd_files",children=[
                                                 html.Br(),
                                                 html.Br(),
                                                 html.Br(),
                                         ]
-                                )
+                                ,flush=True,class_name="text-center")
                         ]
                         )
                         ,]
@@ -102,6 +104,7 @@ layout = dbc.Container([
         dcc.Store("authors_doas",data=dict()),
         dcc.Store("file_cache",data=dict()),
         dcc.Store("file_info_cache",data=dict()),
+        dcc.Store("satd_files_cache"),
         dcc.Loading(id="dir_info_loader",display="show",fullscreen=True),
         dbc.Row([
                 dbc.Col(
@@ -112,10 +115,10 @@ layout = dbc.Container([
                                 ],
                         )
                         ]
-                ,width=8,align="center"),
+                ,width=9,align="center"),
                 dbc.Col(
                         [stack],
-                        width=4,align="center"
+                        width=3,align="center"
                 )
                 ]),
                 
@@ -133,25 +136,34 @@ def open_graph_filtering_collapse(_):
         return False
 
 @callback(
-        Output("setd_files","children"),
+        Output("satd_files_cache","data"),
+        Output("satd_pagination","max_value"),
         Input("file_info_cache","data"),
         State("repo_path","data"),
 )
-def find_setd_files(cache:dict[str,str],path):
+def find_satd_files(cache:dict[str,str],path):
         rp=RepoMiner(path)
-        buttons:list[html.Span]=list()
+        satd_list_dict=list()
         for p,o in cache.items():
                 # print(p)
                 satds:dict[int,str]=find_satd(rp.get_source(o),Path(p).suffix)
                 if len(satds)>0:
-                        buttons.append(SATDDisplayerAIO(p,satds,span_props=dict(className="fw-bold ",style={"cursor":"pointer"}),modal_props={"fullscreen":True}).create_comp())
-                        # buttons.append(dbc.Button(id={"type":"setd_button","index":p},children=p,color="link"))
-                        # buttons.append(dbc.Modal([
-                        #         dbc.ModalHeader(),
-                        #         dbc.ModalBody([
-                        #         html.P(f"#{line} >> {setd}") for line,setd in setds.items()
-                        #         ]),
-                        # ],{"type":"setd_modal","index":p},is_open=False))
+                        satd_list_dict.append((p,satds))
+        return satd_list_dict,ceil(len(satd_list_dict)/items_per_page)
+
+@callback(
+        Output("satd_files","children"),
+        Input("satd_pagination","active_page"),
+        Input("satd_files_cache","data")
+)
+def populate_satd_list(page,cache):
+        if not cache:
+                return no_update
+        buttons:list[dbc.ListGroupItem]=list()
+        start_value=(page-1)*items_per_page
+        to_add=cache[start_value:start_value+items_per_page]
+        for p,satds in to_add:
+                buttons.append(dbc.ListGroupItem(SATDDisplayerAIO(p,satds,span_props=dict(className="fw-bold ",style={"cursor":"pointer"}),modal_props={"scrollable":True}).create_comp()))
         return buttons
 
 @callback(

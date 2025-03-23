@@ -1,4 +1,4 @@
-from dash import Dash, Output, Input, State, html, dcc, callback, MATCH,clientside_callback,dash_table
+from dash import Dash, Output, Input, State, html, dcc, callback, MATCH,clientside_callback,dash_table,ALL
 import uuid
 import dash_bootstrap_components as dbc
 from src._internal import Author
@@ -6,6 +6,7 @@ from typing import Iterable
 from math import ceil
 import json
 import pandas as pd
+import re
 class AuthorDisplayerAIO(): 
     class ids:
         modal = lambda aio_id: {
@@ -152,6 +153,12 @@ class SATDDisplayerAIO():
             'subcomponent': 'store',
             'satd_id': satd_id
         }
+        
+        table_data=lambda satd_id:{
+            'component': 'SATDDisplayerAIO',
+            'subcomponent': 'table_data',
+            'satd_id': satd_id,
+        }
 
     def __init__(
         self,
@@ -173,29 +180,35 @@ class SATDDisplayerAIO():
         d_props =div_props.copy() if div_props else {}
         
         m_props = modal_props.copy() if modal_props else {}
-        satd_table_dict:dict[str,list[str]]=dict(type=list(),line=list(),content=list(),placeholder=list())
+        table_header = [html.Thead(html.Tr([html.Th("Line"), html.Th("Type")]))]
+        # satd_table_dict:dict[str,list[str]]=dict(type=list(),line=list(),content=list(),placeholder=list())
+        rows=list()
+        i=0
         for n,c in satds.items():
             t,content=c.split(" ",1)
-            satd_table_dict['line'].append(n)
-            satd_table_dict["content"].append(content)
-            satd_table_dict["type"].append(t)
-            satd_table_dict['placeholder'].append("Click for data")
-        satd_df=pd.DataFrame(satd_table_dict).to_dict("records")
+            t=re.match(r'[a-zA-Z]+',t).group()
+            #TODO create a custom table component to encapsulate table logic
+            rows.append(html.Tr([html.Td(str(n),id=self.satd_ids.table_data(aio_id+f"_table_{str(i)}_line"),style={"cursor":"pointer"},className="fw-bold text-info"),
+                                html.Td(t,id=self.satd_ids.table_data(aio_id+f"_table_{str(i)}_type")),
+                                dbc.Modal([
+                                    dbc.ModalBody([
+                                        dbc.Container([
+                                            html.P(id=self.satd_ids.content(aio_id+f"_table_{str(i)}_line"),style={"overflow": "hidden","word-wrap":"break-word"},children=content)
+                                        ]),
+                                    ])
+                                ],id=self.satd_ids.modal(aio_id+f"_table_{str(i)}_line"),is_open=False,scrollable=True),
+                                ]))
+            i+=1
+        table_body = [html.Tbody(rows,id=self.satd_ids.table(aio_id+"_table"))]
+        table = dbc.Table(table_header + table_body, bordered=True,size="sm",)
         self.comp=html.P([
-            dcc.Store(id=self.satd_ids.store(aio_id+"_table"),data=satd_df),
-            dbc.Modal([
-                dbc.ModalBody([
-                    dbc.Container([
-                        html.P(id=self.satd_ids.content(aio_id+"_table"),style={"overflow": "hidden","word-wrap":"break-word"})
-                    ]),
-                ])
-                ],id=self.satd_ids.modal(aio_id+"_table"),is_open=False,scrollable=True),
             dbc.Modal([
                 dbc.ModalHeader([html.I(className="bi bi-wrench h3 pe-3"),html.Span(f"{file} SATDs",className="fw-bold")]),
                 dbc.ModalBody([
                     dbc.Container([
                         html.H6(f"SATDs found: {len(satds.keys())}"),
-                        dash_table.DataTable(satd_df,[{"name": "line", "id": "line"},{"name": "type", "id": "type"},{"name": "content", "id": "placeholder"}],filter_action="native",sort_action="native", id=self.satd_ids.table(aio_id+"_table")),
+                        table
+                        # dash_table.DataTable(satd_df,[{"name": "line", "id": "line"},{"name": "type", "id": "type"},{"name": "content", "id": "placeholder","presentation":"markdown"}],filter_action="native",sort_action="native", id=self.satd_ids.table(aio_id+"_table"),markdown_options={"html":True} ),
                     ]),
                 ])
             ],id=self.satd_ids.modal(aio_id),**m_props),
@@ -218,32 +231,69 @@ class SATDDisplayerAIO():
     
     clientside_callback(
     """
-    function(cell, data) {
-        if(cell == undefined){
-            return window.dash_clientside.no_update;
-        }
-        const row = cell.row;
-        const row_data= data[row];
-        const content=row_data.content;
-        return content;
+    function(_,) {
+        return {'is_open':true};
     }
     """,
-    Output(satd_ids.content(MATCH), 'children'),
-    Input(satd_ids.table(MATCH), 'active_cell'),
-    State(satd_ids.store(MATCH),"data"),#list of objects
+        Output(satd_ids.modal(MATCH), 'is_open',allow_duplicate=True),
+        Input(satd_ids.table(MATCH), 'n_clicks'),
+        prevent_initial_call=True
     )
     
     clientside_callback(
     """
     function(_) {
-        if(_==undefined){
-            return window.dash_clientside.no_update;
-        }
-        return {'is_open':true}
+        return {'is_open':true};
     }
     """,
-    Output(satd_ids.modal(MATCH), 'is_open'),
-    Input(satd_ids.table(MATCH), 'active_cell'),
-    prevent_inital_call=True
+        Output(satd_ids.modal(MATCH), 'is_open'),
+        Input(satd_ids.table_data(MATCH), 'n_clicks'),
+        prevent_initial_call=True
     )
+    
+    # clientside_callback(
+    # """
+    # function(_,cell, data) {
+    #     if(cell == undefined){
+    #         return window.dash_clientside.no_update;
+    #     }
+    #     const row = cell.row;
+    #     const row_data= data[row];
+    #     const content=row_data.content;
+    #     return content;
+    # }
+    # """,
+    # Output(satd_ids.content(MATCH), 'children'),
+    # Input(satd_ids.button(MATCH), 'n_clicks'),
+    # State(satd_ids.table(MATCH), 'active_cell'),
+    # State(satd_ids.store(MATCH),"data"),#list of objects
+    # )
+    
+    # clientside_callback(
+    # """
+    # function(_) {
+    #     if(_==undefined){
+    #         return window.dash_clientside.no_update;
+    #     }
+    #     return {'is_open':true}
+    # }
+    # """,
+    # Output(satd_ids.modal(MATCH), 'is_open'),
+    # Input(satd_ids.table(MATCH), 'active_cell'),
+    # prevent_inital_call=True
+    # )
 
+    # clientside_callback(
+    # """
+    # function(_) {
+    #     if(_==true){
+    #         return window.dash_clientside.no_update,window.dash_clientside.no_update;
+    #     }
+    #     return [],undefined
+    # }
+    # """,
+    # Output(satd_ids.table(MATCH), 'selected_cells'),
+    # Output(satd_ids.table(MATCH), 'active_cell'),
+    # Input(satd_ids.modal(MATCH), 'is_open'),
+    # prevent_inital_call=True
+    # )
