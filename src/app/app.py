@@ -6,23 +6,20 @@ from pathlib import Path
 from waitress import serve,server
 from concurrent.futures import ThreadPoolExecutor
 from src._internal import RepoMiner
-from time import strptime,strftime
-import json
 import pandas as pd
-import numpy as np
-import plotly.express as px
-from src.utility.logs import setup_logging
 import dash_bootstrap_components as dbc
+import re
 
 def start_app(repo_path:Union[str|Path],cicd_test:bool,env:bool):
     path=repo_path if isinstance(repo_path,str) else repo_path.as_posix()
     # print(path)
-    app=Dash(name="Project Visualization Tool",title="PVT",assets_folder=Path(__file__).parent.parent.joinpath("gui","assets").as_posix(),external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.BOOTSTRAP],use_pages=True,pages_folder=Path(__file__).parent.parent.joinpath("gui","pages").as_posix())
+    pr_name=re.subn(r"_|-"," ",Path(path).name)[0].capitalize()
+    app=Dash(name=pr_name,title="PVT",assets_folder=Path(__file__).parent.parent.joinpath("gui","assets").as_posix(),external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.BOOTSTRAP],use_pages=True,pages_folder=Path(__file__).parent.parent.joinpath("gui","pages").as_posix())
     navbar = dbc.NavbarSimple(
         children=[
             dbc.NavItem(dbc.NavLink("Home", href="/")),
             dbc.NavItem(dbc.NavLink("Directory analysis", href="/dir")),
-            dbc.Button(id="reload_button",children=[html.I(className="bi bi-arrow-counterclockwise p-1")],className="p1 bg-transparent border-0"),
+            dbc.Button(id="reload_button",children=[html.I(className="bi bi-arrow-counterclockwise p-1")],className="p1 bg-transparent border-0",value=0),
             dbc.Button(id="open_info",children=[html.I(className="bi bi-list p-1")],className="p1 bg-transparent border-0"),
         ],
         brand="Project Visualization Tool",
@@ -48,12 +45,13 @@ def start_app(repo_path:Union[str|Path],cicd_test:bool,env:bool):
         dcc.Store("repo_path",data=path,storage_type="session"),
         navbar,
         general_options,
+        
         dbc.Row([ 
                 dbc.Col(
                         children=[
                             dbc.Container([
                             dcc.Loading(fullscreen=True,children=[
-                                dcc.Store(id="commit_df_cache",storage_type="session"),
+                                dcc.Store(id="commit_df_cache",storage_type="memory"),
                                 
                                 ]),
                             page_container
@@ -103,7 +101,7 @@ def listen_data(_,data,cache):
         # set_props("author_loader_graph",{"display":"auto"})
         # set_props("author_loader",{"display":"auto"})
         tr_fa,contributions=result.result()
-        contributions=dict([(f"{a.name}{a.email}",c) for a,c in contributions.items()])
+        contributions=dict([(f"{a.name}|{a.email}",c) for a,c in contributions.items()])
         return commit_df.to_dict("records"),tr_fa,contributions,authors.to_dict("records")
 
 @callback(

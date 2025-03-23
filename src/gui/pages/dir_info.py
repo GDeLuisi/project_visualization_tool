@@ -1,9 +1,8 @@
 import dash
-from dash import dcc,callback,Input,Output,no_update,set_props,State,clientside_callback,Patch,ctx
+from dash import dcc,callback,Input,Output,no_update,set_props,State,clientside_callback,Patch,ctx,ALL,MATCH
 from src._internal import RepoMiner,make_commit_dataframe,prune_common_commits,getMaxMinMarks,unixTimeMillis,unixToDatetime
 import dash.html as html
 from datetime import date
-from src.gui.components import sidebar
 import plotly.express as px
 import pandas as pd
 from pathlib import Path
@@ -12,12 +11,43 @@ import dash_bootstrap_components as dbc
 from io import StringIO
 import json
 import time
+from typing import Union
+from src._internal import find_satd
 from logging import getLogger
+from src.gui import SATDDisplayerAIO
+from math import ceil
 logger=getLogger("mainpage")
 dash.register_page(__name__,"/dir")
-
+items_per_page=5 #TODO make it configurable by user
 stack=dbc.Stack(id="stack_info",className="p-2 h-75",children=[
-        dbc.Card([
+        
+        dbc.Card(
+                id="setd_files_info",
+                children=[
+                        dbc.CardHeader(id="setd_files_header",children="SATD discovery"),
+                dbc.CardBody(
+                        [
+                        dbc.Container([
+                                dcc.Loading([
+                                dbc.Pagination(id="satd_pagination",min_value=1,max_value=1,fully_expanded=False,first_last=True,previous_next=True,active_page=1),
+                                dbc.ListGroup(
+                                        id="satd_files",children=[
+                                                html.Br(),
+                                                html.Br(),
+                                                html.Br(),
+                                        ]
+                                ,flush=True,class_name="text-center")
+                        ]
+                        )
+                        ,]
+                                ),
+                        ])
+                        
+                ],
+        ),
+        dbc.Button(id="graph_filtering_collapse_btn",children="Toggle directory filtering"),
+        dbc.Collapse([
+                dbc.Card([
                 dbc.CardHeader([
                         "Graph filtering"
                         ]),
@@ -49,8 +79,9 @@ stack=dbc.Stack(id="stack_info",className="p-2 h-75",children=[
                                         width=6),
                                 ],className="py-2",justify="center"),
                 ]
-        ),]
-        ),
+                ),]
+                ),
+        ],"graph_filtering_collapse",is_open=False),
         dbc.Card(
                 id="card-file-info",
                 children=[
@@ -72,6 +103,8 @@ stack=dbc.Stack(id="stack_info",className="p-2 h-75",children=[
 layout = dbc.Container([
         dcc.Store("authors_doas",data=dict()),
         dcc.Store("file_cache",data=dict()),
+        dcc.Store("file_info_cache",data=dict()),
+        dcc.Store("satd_files_cache"),
         dcc.Loading(id="dir_info_loader",display="show",fullscreen=True),
         dbc.Row([
                 dbc.Col(
@@ -82,17 +115,70 @@ layout = dbc.Container([
                                 ],
                         )
                         ]
-                ,width=8,align="center"),
+                ,width=9,align="center"),
                 dbc.Col(
                         [stack],
-                        width=4,align="center"
+                        width=3,align="center"
                 )
                 ]),
                 
                 ]
                 ,fluid=True)
-        
+
 @callback(
+        Output("graph_filtering_collapse","is_open"),
+        Input("graph_filtering_collapse_btn","n_clicks"),
+        prevent_initial_call=True
+)
+def open_graph_filtering_collapse(_):
+        if _%2>0:
+                return True
+        return False
+
+@callback(
+        Output("satd_files_cache","data"),
+        Output("satd_pagination","max_value"),
+        Input("file_info_cache","data"),
+        State("repo_path","data"),
+)
+def find_satd_files(cache:dict[str,str],path):
+        rp=RepoMiner(path)
+        satd_list_dict=list()
+        for p,o in cache.items():
+                # print(p)
+                satds:dict[int,str]=find_satd(rp.get_source(o),Path(p).suffix)
+                if len(satds)>0:
+                        satd_list_dict.append((p,satds))
+        return satd_list_dict,ceil(len(satd_list_dict)/items_per_page)
+
+@callback(
+        Output("satd_files","children"),
+        Input("satd_pagination","active_page"),
+        Input("satd_files_cache","data")
+)
+def populate_satd_list(page,cache):
+        if not cache:
+                return no_update
+        buttons:list[dbc.ListGroupItem]=list()
+        start_value=(page-1)*items_per_page
+        to_add=cache[start_value:start_value+items_per_page]
+        for p,satds in to_add:
+                buttons.append(dbc.ListGroupItem(SATDDisplayerAIO(p,satds,span_props=dict(className="fw-bold ",style={"cursor":"pointer"}),modal_props={"scrollable":True}).create_comp()))
+        return buttons
+
+@callback(
+        Output({"type":"setd_modal","index":MATCH},"is_open"),
+        Input({"type":"setd_button","index":MATCH},"n_clicks"),
+        prevent_initial_call=True
+)
+def load_modal(_):
+        #load setd modal on file_setd button click
+        if _==0:
+                return no_update
+        return True
+
+@callback(
+        Output("file_info_cache","data"),
         Output("dir_treemap","figure"),
         Input("calculate_doa","n_clicks"),
         Input("branch_picker","value"),
@@ -106,10 +192,14 @@ def populate_treemap(_,b,name,email,doa,data,cache):
         # df=pd.DataFrame(cache)
         rp=RepoMiner(data)
         author_doas=None
+        tree_dict:dict[str,str]=dict()
         if name and email:
-                author=f"{name}{email}"
+                author=f"{name}|{email}"
                 author_doas=cache[author]
         tree = rp.get_dir_structure(b)
+        for p,o in tree.walk(files_only=True):
+                tree_dict[f"{p}/{o.name}"]=o.hash_string
+        # print(tree_dict)
         df=tree.get_treemap()
         # print(df)
         df=pd.DataFrame(df)
@@ -132,7 +222,7 @@ def populate_treemap(_,b,name,email,doa,data,cache):
         )
         set_props("dir_info_loader",{"display":"auto"})
         # fig=px.treemap(parents = ["", "Eve", "Eve", "Seth", "Seth", "Eve", "Eve", "Awan", "Eve","Noam"],names = ["Eve","Cain", "Seth", "Enos/Noam", "Noam", "Abel", "Awan", "Enoch", "Azura","Aqua"],)
-        return fig
+        return tree_dict,fig
 
 @callback(
         Output("card-file-info","className"),

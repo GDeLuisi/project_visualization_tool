@@ -5,7 +5,7 @@ import os
 import logging
 from .data_typing import ACCEPTED_EXTENSIONS
 logger = logging.getLogger("File Parser")
-
+DEFAULT_SATD_HIGHLIHGTER={"TODO","FIXME","HACK","XXX"}
 def fetch_source_files(project_path:Union[Path|str],extensions:set[str],exclude_dirs:set[str]=[".venv",".git",".pytest_cache"])->Generator[Path,None,None]:
     # info("Entered fetch_source_files function")
     path = project_path
@@ -134,7 +134,7 @@ def _find_satd(comments:list[tuple[int,int,str]],tags:list[str])->dict[int,str]:
                 if txt:
                     satds[start+i]=txt
     return satds
-def find_satd_file(filepath:Union[Path|str],tags:set[str]={"TODO","FIXME","HACK","XXX"})->dict[int,str]:
+def find_satd_file(filepath:Union[Path|str],tags:set[str]=DEFAULT_SATD_HIGHLIHGTER)->dict[int,str]:
     """Finds all SATD in a file
 
     Args:
@@ -147,7 +147,7 @@ def find_satd_file(filepath:Union[Path|str],tags:set[str]={"TODO","FIXME","HACK"
     comments=find_file_comments_with_locations(filename=filepath)
     logger.debug(f"Found comments in file {filepath.as_posix() if isinstance(filepath,Path) else filepath}",extra={"comments":comments})
     return _find_satd(comments,tags)
-def find_satd(text:str,extension:str,tags:set[str]={"TODO","FIXME","HACK","XXX"})->dict[int,str]:
+def find_satd(text:str,extension:str,tags:set[str]=DEFAULT_SATD_HIGHLIHGTER)->dict[int,str]:
     """Finds all SATD in a text
 
     Args:
