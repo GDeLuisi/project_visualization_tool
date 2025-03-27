@@ -34,6 +34,7 @@ class AuthorDisplayerAIO():
             'subcomponent': 'store',
             'aio_id': aio_id
         }
+    
 
     def __init__(
         self,
@@ -52,8 +53,8 @@ class AuthorDisplayerAIO():
         if aio_id is None:
             aio_id = str(uuid.uuid4())
         sp_props= span_props.copy() if span_props else {}
-        if "style" not in sp_props:
-            sp_props["style"]=dict(cursor="pointer")
+        if "className" not in sp_props:
+            sp_props["className"]="clickable"
             
         d_props =div_props.copy() if div_props else {}
         
@@ -90,7 +91,7 @@ class AuthorDisplayerAIO():
                     ]),
                 ])
             ],id=self.ids.modal(aio_id),**m_props),
-            html.Span(id=self.ids.button(aio_id),children=f"{author.name} <{author.email}> ",**sp_props),html.Span(text)
+            html.Span(id=self.ids.button(aio_id),children=f"{author.name} {text}",**sp_props)
         ])
             
     def create_comp(self)->html.Span:

@@ -1,5 +1,5 @@
 from logging import getLogger
-from typing import Iterable,Literal,Union
+from typing import Iterable,Literal,Union,Callable
 from math import log1p
 import json
 import pandas as pd
