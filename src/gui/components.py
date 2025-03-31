@@ -103,8 +103,18 @@ class CustomTable():
         table_header = [html.Thead(html.Tr([html.Th([
             html.Span(" ".join(header.split("_")).capitalize(),className="pe-2"),
             html.I(className="bi bi-funnel clickable",id=self.ids.button(id,header,"filter"),n_clicks=0) if filters and header in filters else "",
-            dbc.Collapse([dbc.Input(id=self.ids.input(id,"text",header),placeholder="Filter",size="md")],id=self.ids.input(id,"collapse",header),is_open=False) if filters and header in filters else "",
-            html.I(className="bi bi-bi-caret-down clickable",id=self.ids.button(id,header,"sort"),n_clicks=0) if  header in sort_keys else "",
+            dbc.Collapse([
+                dbc.Row(
+                    [
+                        dbc.Col([
+                            dbc.Input(id=self.ids.input(id,"text",header),placeholder="Filter",size="md")
+                            ],width=10),
+                        dbc.Col([
+                            html.I(className="bi bi-x-lg clickable",id=self.ids.button(id,header,"filter_clear"),n_clicks=0)
+                            ],width=2,align="center")
+                        ]),
+                ],id=self.ids.input(id,"collapse",header),is_open=False) if filters and header in filters else "",
+            html.I(className="bi bi-caret-down clickable",id=self.ids.button(id,header,"sort"),n_clicks=0) if  header in sort_keys else "",
             ]) for header in keys]))]
         
         table = dbc.Table(table_header,id=self.ids.table(id),**t_props)
@@ -177,13 +187,13 @@ class CustomTable():
     @callback(
         Output(ids.store(MATCH,"filtered_indexes"),"data"),
         Input(ids.input(MATCH,"text",ALL), 'value'),
+        Input(ids.store(MATCH,"full_data"),"data"),
         State(ids.store(MATCH,"filters"), 'data'),
-        State(ids.store(MATCH,"full_data"),"data"),
         State(ids.store(MATCH,"filtered_indexes"),"data"),
         State(ids.input(MATCH,"text",ALL), 'id'),
         prevent_initial_call=True
     )
-    def filter_data(text,filters,orig_data,filtered_indexes,in_id):
+    def filter_data(text,orig_data,filters,filtered_indexes,in_id):
         text_to_use=text[0]
         if not in_id[0]:
             return no_update
@@ -214,6 +224,20 @@ class CustomTable():
         Input(ids.button(MATCH,MATCH,"sort"), 'n_clicks'),
     )
     
+    clientside_callback(
+        """
+        function(_){
+            if(_== undefined){
+                return window.dash_clientside.no_update;
+            }
+            return "";
+            }   
+        """,
+        Output(ids.input(MATCH,"text",MATCH), 'value'),
+        Input(ids.button(MATCH,MATCH,"filter_clear"), 'n_clicks'),
+        prevent_initial_call=True
+    )
+
     @callback(
         Output(ids.store(MATCH,"full_data"),"data"),
         Input(ids.button(MATCH,ALL,"sort"),"n_clicks"),
