@@ -67,9 +67,9 @@ class AuthorDisplayerAIO():
                 dbc.ModalHeader([html.I(className="bi bi-person-circle h3 pe-3"),html.Span(f"{author.name} <{author.email}>",className="fw-bold")]),
                 dbc.ModalBody([
                     dbc.Container([
-                        html.H6(f"Files Authored: {len(cont)}"),
-                        html.H6(f"Commits Authored: {len(author.commits_authored)}"),
-                        html.H6(f"Files authored list:"),
+                        html.H6([html.Span(f"Files Authored: ",className="fw-bold") ,str(len(cont))]),
+                        html.H6([html.Span(f"Commits Authored: ",className="fw-bold") ,str(len(author.commits_authored))]),
+                        html.H6(html.Span("Files authored list: ",className="fw-bold")),
                         dbc.Tabs([
                             dbc.Tab(
                                 [
@@ -206,7 +206,7 @@ class SATDDisplayerAIO():
                 dbc.ModalHeader([html.I(className="bi bi-wrench h3 pe-3"),html.Span(f"{file} SATDs",className="fw-bold")]),
                 dbc.ModalBody([
                     dbc.Container([
-                        html.H6(f"SATDs found: {len(satds.keys())}"),
+                        html.H6([html.Span("SATDs found:",className="fw-bold") ,str(len(satds.keys()))]),
                         table
                         # dash_table.DataTable(satd_df,[{"name": "line", "id": "line"},{"name": "type", "id": "type"},{"name": "content", "id": "placeholder","presentation":"markdown"}],filter_action="native",sort_action="native", id=self.satd_ids.table(aio_id+"_table"),markdown_options={"html":True} ),
                     ]),
