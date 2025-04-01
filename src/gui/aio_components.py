@@ -312,7 +312,7 @@ class CommitDisplayerAIO():
                         html.P([html.Span("Commit Message: ",className="fw-bold"), commit.subject] ),
                         html.P([html.Span("Commit Author: ",className="fw-bold"), f"{commit.author_name} <{commit.author_email}>"]),
                         html.P([html.Span("Complete hash string: ",className="fw-bold"),commit.commit_hash]),
-                        html.P([html.Span("Created at: ",className="fw-bold") ,commit.date.isoformat()]),
+                        html.P([html.Span("Created at: ",className="fw-bold") ,commit.date.strftime(r"%d-%m-%Y")]),
                         html.P([html.Span("Parent hash: ",className="fw-bold"),html.Span(commit.parent,id=self.ids.content(aio_id,"parent")),dcc.Clipboard(
                         target_id=self.ids.content(aio_id,"parent"),
                         title="copy",

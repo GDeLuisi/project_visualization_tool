@@ -9,12 +9,12 @@ from src._internal import RepoMiner
 import pandas as pd
 import dash_bootstrap_components as dbc
 import re
-
+assets_folder=Path(__file__).parent.parent.joinpath("gui","assets")
 def start_app(repo_path:Union[str|Path],cicd_test:bool,env:bool):
     path=repo_path if isinstance(repo_path,str) else repo_path.as_posix()
     # print(path)
     pr_name=re.subn(r"_|-"," ",Path(path).name)[0].capitalize()
-    app=Dash(name=pr_name,title="PVT",assets_folder=Path(__file__).parent.parent.joinpath("gui","assets").as_posix(),external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.BOOTSTRAP],use_pages=True,pages_folder=Path(__file__).parent.parent.joinpath("gui","pages").as_posix())
+    app=Dash(name=pr_name,title="PVT",assets_folder=assets_folder.as_posix(),external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.BOOTSTRAP,assets_folder.joinpath("css").as_posix()],use_pages=True,pages_folder=Path(__file__).parent.parent.joinpath("gui","pages").as_posix())
     navbar = dbc.NavbarSimple(
         children=[
             dbc.NavItem(dbc.NavLink("Home", href="/")),

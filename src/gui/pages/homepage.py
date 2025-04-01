@@ -12,8 +12,8 @@ import dash_bootstrap_components as dbc
 from io import StringIO
 import json
 import time
-from src.gui import AuthorDisplayerAIO
-
+from src.gui import AuthorDisplayerAIO,CustomTable,CommitDisplayerAIO
+from datetime import datetime
 from logging import getLogger
 logger=getLogger("mainpage")
 dash.register_page(__name__,"/")
@@ -53,58 +53,78 @@ layout = dbc.Container([
                 ,width=4,align="start"
                 ),
                 ]),
-        dbc.Row(id="author_graph_row",children=[
-                dbc.Col(
+        dbc.Tabs([
+                dbc.Tab(
                         [
-                                dcc.Loading(id="author_loader_graph",
-                                children=[dcc.Graph(id="graph",className="h-100")],
-                                overlay_style={"visibility":"visible", "filter": "blur(2px)"},
-                        ),
-                                html.Div([
-                                        dcc.RadioItems(id="x_picker",options=[{"label":"Day of week","value":"dow"},{"label":"Per date","value":"date"}],value="dow",inline=True,labelClassName="px-2"),
+                        dbc.Row(id="author_graph_row",children=[
+                        dbc.Col(
+                                [
+                                        dcc.Loading(id="author_loader_graph",
+                                        children=[dcc.Graph(id="graph",className="h-100")],
+                                        overlay_style={"visibility":"visible", "filter": "blur(2px)"},
+                                ),
+                                        html.Div([
+                                                dcc.RadioItems(id="x_picker",options=[{"label":"Day of week","value":"dow"},{"label":"Per date","value":"date"}],value="dow",inline=True,labelClassName="px-2"),
+                                                ]),
+                                ],width=8,align="center"),
+                        
+                        dbc.Col([
+                                dcc.Loading(id="author_overview_loader",children=[
+                                                dcc.Graph(id="author_overview")
+                                        ],
+                                        overlay_style={"visibility":"visible", "filter": "blur(2px)"},
+                                        ),
+                                ],width=4),
+                        ],justify="center"),
+                dbc.Row([
+                        dbc.Col([
+                                dcc.Loading(id="author_loader",children=[
+                                        dcc.Graph(id="author_graph")
+                                        ],
+                                        overlay_style={"visibility":"visible", "filter": "blur(2px)"},
+                                        ),
+                                dcc.Slider(id="date_slider",marks=None, tooltip={"placement": "bottom", "always_visible": False,"transform": "timestampToUTC"},),
+                                ],width=12),
+                ])
+                ],label="General overview"
+                ),
+                dbc.Tab(label="Authors",children=[
+                                        dbc.Row(children=[
+                                                dbc.Col(width=12,align="center",id="authors_table"),
+                                        ],justify="center"),]),
+                dbc.Tab(label="Commits",children=[                                                  
+                                        dbc.Row(children=[
+                                                dbc.Col(width=12,align="center",id="commits_table"),
+                                        ],justify="center"),
                                         ]),
-                        ],width=8,align="center"),
                 
-                dbc.Col([
-                        dcc.Loading(id="author_overview_loader",children=[
-                                        dcc.Graph(id="author_overview")
-                                ],
-                                overlay_style={"visibility":"visible", "filter": "blur(2px)"},
-                                ),
-                        ],width=4),
-                ],justify="center"),
-        dbc.Row([
-                dbc.Col([
-                        dcc.Loading(id="author_loader",children=[
-                                dcc.Graph(id="author_graph")
-                                ],
-                                overlay_style={"visibility":"visible", "filter": "blur(2px)"},
-                                ),
-                        dcc.Slider(id="date_slider",marks=None, tooltip={"placement": "bottom", "always_visible": False,"transform": "timestampToUTC"},),
-                        ],width=12),
-        ])
+                
+                ]),
+        
         
         # html.Div(id="test-div")
 ],fluid=True,className="p-10")
 @callback(
         Output("general_info","children"),
-        Input("branch_picker","value"),
+        Input("branch_cache","data"),
         Input("authors_cache","data"),
+        State("branch_picker","value"),
         State("repo_path","data"),
 )
-def populate_generale_info(branch,authors,path,):
+def populate_generale_info(cache,authors,branch,path,):
+        if not cache:
+                return no_update
         rp=RepoMiner(path)
-        num_commits=rp.count_commits()
+        num_commits=len(cache)
         current_head=rp.repo.active_branch.name if not branch else branch
-        df_authors=pd.DataFrame(authors)
-        num_authors=df_authors["name"].size
+        num_authors=len(authors)
         current_commit=rp.get_commit(commit_hash=branch if branch else None)
         div=dbc.ListGroup(
                 [
                         dbc.ListGroupItem([html.I(className="bi bi-graph-up pe-3 d-inline ms-2"),html.Span(f"Total number of commits: {num_commits}")]),
                         dbc.ListGroupItem([html.I(className="bi bi-pen-fill d-inline ms-2 pe-3"),html.Span(f"Total number of authors: {num_authors}")]),
                         dbc.ListGroupItem([html.I(className="bi bi-signpost-split-fill pe-3 d-inline ms-2"),html.Span(f"Current head of repository: {current_head}")]),
-                        dbc.ListGroupItem([html.I(className="bi bi-code-slash pe-3 d-inline ms-2"),html.Span(f"Last reachable commit: {current_commit.abbr_hash} , {current_commit.subject}")])
+                        dbc.ListGroupItem([html.I(className="bi bi-code-slash pe-3 d-inline ms-2"),html.Span([f"Last reachable commit: ",CommitDisplayerAIO(current_commit).create_comp()])])
                 ]
         ,class_name=" py-3",flush=True)
         return html.Div([
@@ -137,13 +157,39 @@ def populate_truck_info(tf,contributions):
                 div
         ])
 
-# @callback(
-#         Output("truck_factor_modal","is_open"),
-#         Input("truck_factor_info","n_clicks"),
-#         prevent_initial_call=True
-# )
-# def open_truck_modal(_):
-#         return True
+@callback(
+        Output("commits_table","children"),
+        Input("branch_cache","data")
+)
+def populate_commits_tab(data):
+        data_to_show=list()
+        for d in data:
+                nd={
+                        "Commit hash":CommitDisplayerAIO(CommitInfo(
+                                d["commit_hash"],d["abbr_hash"],d["tree"],d["parent"],d["refs"],d["subject"],d["author_name"],d["author_email"],datetime.fromisoformat(d["date"]).date(),d["files"])).create_comp(),
+                        "Full hash":d["commit_hash"],
+                        "Author Name":d["author_name"],
+                        "Date":datetime.fromisoformat(d["date"]).strftime(r"%d-%m-%Y"),
+                }
+                data_to_show.append(nd)
+        return CustomTable(data_to_show,div_props={"fluid":True},filters={"Full hash":"equal","Author Name":"like"},sort={"Date":"date"}).create_comp()
+
+@callback(
+        Output("authors_table","children"),
+        Input("contribution_cache","data"),
+        Input("authors_cache","data")
+)
+def populate_authors_tab(contributions,data,doa_th=0.75):
+        data_to_show=list()
+        for d in data:
+                author,cont=Author(d["email"],d["name"],d["commits_authored"]),[file for file, doa in contributions[f"{d['name']}|{d['email']}"].items() if doa >= doa_th]
+                nd={
+                        "Author":AuthorDisplayerAIO(author,cont).create_comp(),
+                        "Email":d["email"],
+                        "Files authored":len(cont)
+                }
+                data_to_show.append(nd)
+        return CustomTable(data_to_show,filters={"Email":"like"},sort={"Files authored":"none"},div_props={"fluid":True}).create_comp()
 
 @callback(
         Output("graph","figure"),
@@ -184,10 +230,10 @@ def update_pie_graph(data):
         Input("contribution_cache","data"),
         State("authors_cache","data")
 )
-def populate_contributors(contributions,authors):
+def populate_contributors(contributions,authors,th=0.75):
         contrs:dict[str,Iterable[str]]=dict()
         auth_df=pd.DataFrame(authors)
-        th=0.75
+        
         for nm,c in contributions.items():
                 contrs[nm]=list()
                 for file,doa in c.items():
@@ -203,7 +249,7 @@ def populate_contributors(contributions,authors):
         for nm,c in contrs:
                 name,email=nm.split("|")
                 at=auth_df.loc[(auth_df["name"]==name) & (auth_df["email"]==email)]
-                nd=AuthorDisplayerAIO(Author(at["email"].values[0],at["name"].values[0],at["commits_authored"].values[0]),c,span_props=dict(className="fw-bold ",style={"cursor":"pointer"})).create_comp()
+                nd=AuthorDisplayerAIO(Author(at["email"].values[0],at["name"].values[0],at["commits_authored"].values[0]),c,text=f"<{at["email"].values[0]}>").create_comp()
                 # nd=html.Div()
                 cont_div=dbc.ListGroupItem([
                         nd
@@ -219,13 +265,6 @@ def populate_contributors(contributions,authors):
         
         return div
 
-# @callback(
-#         Output({"type":"author_modal","index":MATCH},"is_open"),
-#         Input({"type":"author_modal_btn","index":MATCH},"n_clicks"),
-#         prevent_initial_call=True
-#         )
-# def open_author_modal(_):
-#         return True
 @callback(
         Output("author_graph","figure"),
         Output("author_loader","display"),
