@@ -246,7 +246,7 @@ def populate_contributors(contributions,authors,th=0.75):
         for nm,c in contrs:
                 name,email=nm.split("|")
                 at=auth_df.loc[(auth_df["name"]==name) & (auth_df["email"]==email)]
-                nd=AuthorDisplayerAIO(Author(at["email"].values[0],at["name"].values[0],at["commits_authored"].values[0]),c,text=f"<{at["email"].values[0]}>").create_comp()
+                nd=AuthorDisplayerAIO(Author(at["email"].values[0],at["name"].values[0],at["commits_authored"].values[0]),c,text=f"<{at['email'].values[0]}>").create_comp()
                 # nd=html.Div()
                 cont_div=dbc.ListGroupItem([
                         nd
