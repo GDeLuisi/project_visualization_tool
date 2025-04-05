@@ -9,6 +9,9 @@ from src._internal import RepoMiner
 import pandas as pd
 import dash_bootstrap_components as dbc
 import re
+from logging import getLogger
+logger=getLogger()
+
 assets_folder=Path(__file__).parent.parent.joinpath("gui","assets")
 def start_app(repo_path:Union[str|Path],cicd_test:bool,env:bool):
     path=repo_path if isinstance(repo_path,str) else repo_path.as_posix()
@@ -50,16 +53,16 @@ def start_app(repo_path:Union[str|Path],cicd_test:bool,env:bool):
                 dbc.Col(
                         children=[
                             dbc.Container([
-                            dcc.Loading(fullscreen=True,children=[
+                            dcc.Loading(children=[
                                 dcc.Store(id="commit_df_cache",storage_type="memory"),
-                                
-                                ]),
+                                ],className="d-inline"),
+                            ],fluid=True),
                             page_container
-                            ],fluid=True)
                             ],
                         width=12,align="end"), 
             ],align="start")        
     ])
+    logger.info("Loading necessary info, hang tight")
     if not cicd_test:
         if env=="DEV":
             app.run(debug=True,dev_tools_hot_reload=True)

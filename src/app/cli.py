@@ -23,7 +23,7 @@ def main(args:Optional[Sequence[str]]=None,cicd_test:bool=False,env:str="PROD"):
         exit(3)
     parser=ArgumentParser(prog="project-viewer")
     parser.add_argument('dir',nargs='?', default=Path.cwd().as_posix(), type=str)
-    parser.add_argument('-v',"--version",action='store_false')
+    parser.add_argument('-v',"--version",action='store_true')
     parsed_args=parser.parse_args(args)
     if parsed_args.version==True:
         print("project-viewer "+__version__)
@@ -46,5 +46,6 @@ def main(args:Optional[Sequence[str]]=None,cicd_test:bool=False,env:str="PROD"):
     except subprocess.CalledProcessError:
         logger.error("Git repo is corrupted, check for your git config files")
         exit(3)
+    logger.info(f"Starting application")
     start_app(dir,cicd_test,env=env)
     # find_setd()
