@@ -6,6 +6,7 @@ from sys import version_info
 import subprocess
 import logging
 import os
+from src.utility._version import __version__
 from src.utility.logs import setup_logging
 logger=logging.getLogger("cli")
 def main(args:Optional[Sequence[str]]=None,cicd_test:bool=False,env:str="PROD"):
@@ -22,8 +23,13 @@ def main(args:Optional[Sequence[str]]=None,cicd_test:bool=False,env:str="PROD"):
         exit(3)
     parser=ArgumentParser(prog="project-viewer")
     parser.add_argument('dir',nargs='?', default=Path.cwd().as_posix(), type=str)
-    namespace=parser.parse_args(args)
-    dir=str(namespace.dir)
+    parser.add_argument('-v',"--version",action='store_false')
+    parsed_args=parser.parse_args(args)
+    if parsed_args.version==True:
+        print("project-viewer "+__version__)
+        exit(0)
+    namespace=parsed_args.dir
+    dir=str(namespace)
     if dir==".":
         dir=Path.cwd().as_posix()
     logger.info(f"Opening git repository at {dir}")

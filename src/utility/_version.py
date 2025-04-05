@@ -1,0 +1,3 @@
+import importlib
+import importlib.metadata
+__version__=importlib.metadata.version("project_visualization_tool_GDeLuisi")
