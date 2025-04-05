@@ -34,7 +34,6 @@ class AuthorDisplayerAIO():
             'subcomponent': 'store',
             'aio_id': aio_id
         }
-    
 
     def __init__(
         self,
@@ -67,9 +66,11 @@ class AuthorDisplayerAIO():
                 dbc.ModalHeader([html.I(className="bi bi-person-circle h3 pe-3"),html.Span(f"{author.name} <{author.email}>",className="fw-bold")]),
                 dbc.ModalBody([
                     dbc.Container([
+
                         html.H6([html.Span(f"Files Authored: ",className="fw-bold") ,str(len(cont))]),
                         html.H6([html.Span(f"Commits Authored: ",className="fw-bold") ,str(len(author.commits_authored))]),
                         html.H6(html.Span("Files authored list: ",className="fw-bold")),
+
                         dbc.Tabs([
                             dbc.Tab(
                                 [
@@ -92,7 +93,6 @@ class AuthorDisplayerAIO():
                 ])
             ],id=self.ids.modal(aio_id),**m_props),
             html.Span(id=self.ids.button(aio_id),children=f"{author.name} {text}",**sp_props)
-        ])
             
     def create_comp(self)->html.Span:
         return self.comp 
@@ -336,4 +336,3 @@ class CommitDisplayerAIO():
     Input(ids.button(MATCH,"modal"), 'n_clicks'),
     prevent_initial_call=True
     )
-

@@ -1,4 +1,3 @@
-
 from dash import Dash, Output, Input, State, html, dcc, callback, MATCH,clientside_callback,dash_table,ALL,no_update,ctx
 import uuid
 import dash_bootstrap_components as dbc
@@ -262,4 +261,4 @@ class CustomTable():
             sorted_data=list(sorter(data,lambda d:d[target],reverse))
         # print([d["Email"] for d in sorted_data])
         return sorted_data
-        
+
