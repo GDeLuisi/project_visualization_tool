@@ -68,7 +68,7 @@ class CustomTable():
             keys=sorted(list(data.keys()))
             key=keys.pop()
             keys.add(key)
-            ln=len(data[k])
+            ln=len(data[key])
             #check for equal length in data lists
             for k,v in data.items():
                 if not isinstance(v,list):
