@@ -92,7 +92,7 @@ class AuthorDisplayerAIO():
                     ]),
                 ])
             ],id=self.ids.modal(aio_id),**m_props),
-            html.Span(id=self.ids.button(aio_id),children=f"{author.name} {text}",**sp_props)
+            html.Span(id=self.ids.button(aio_id),children=f"{author.name} {text}",**sp_props)])
             
     def create_comp(self)->html.Span:
         return self.comp 

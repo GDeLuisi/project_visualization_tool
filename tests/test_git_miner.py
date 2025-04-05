@@ -7,6 +7,7 @@ from pytest import fixture,mark,raises
 from pydriller import Git
 from _internal.data_typing import Author
 from datetime import date
+from typing import Sequence
 log.setup_logging()
 logger=logging.getLogger("Miner tester")
 @fixture
@@ -123,10 +124,17 @@ def test_get_tracked_files(repo_miner):
     files=set()
     for branch in repo_miner.get_branches(False):
         files.update(repo_miner.get_commit_files(branch.name))
-    assert files==set(repo_miner.get_tracked_files())
+    assert files==set(repo_miner.get_tracked_dirs())
     
 def test_get_tracked_dirs(repo_miner):
-    assert {d.relative_to(Path.cwd()).as_posix() for d in Path.cwd().iterdir() if d.is_dir() and d.name != ".git" and d.name != "logs"}.issubset(repo_miner.get_tracked_dirs())
+    tracked=set(repo_miner.get_tracked_dirs())
+    dirs=set()
+    actual_dirs=[d for d in map(lambda a: Path(a).parents,repo_miner.get_tracked_files())]
+    for d in actual_dirs:
+        dirs.update(d)
+    dirs={d.as_posix() for d in dirs}
+    logger.debug("Found tracked dirs",extra={"tracked":tracked,"actual":dirs})
+    assert tracked.issubset(dirs)
     
 def test_get_author_commits(repo_miner):
     sumlist=0

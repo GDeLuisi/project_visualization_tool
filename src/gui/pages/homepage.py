@@ -263,53 +263,6 @@ def populate_contributors(contributions,authors,th=0.75):
         return div
 
 @callback(
-        Output("contribution_info","children"),
-        Input("contribution_cache","data"),
-        State("authors_cache","data")
-)
-def populate_contributors(contributions,authors):
-        contrs:dict[str,Iterable[str]]=dict()
-        auth_df=pd.DataFrame(authors)
-        th=0.75
-        for nm,c in contributions.items():
-                contrs[nm]=list()
-                for file,doa in c.items():
-                        if doa >= th:
-                                contrs[nm].append(file)
-        contrs=sorted([(ne,files) for ne,files in contrs.items()] ,key=lambda t:len(t[1]),reverse=True)
-        contrs=contrs[:3] if len(contrs)>=3 else contrs
-        contributors=[html.I(className="bi bi-trophy-fill d-inline h3 pe-3"),
-                html.H4(f"Your project's top {len(contrs)} contributors:",className="d-inline fw-bold")
-        ]
-        i=1
-        list_items=[]
-        for nm,c in contrs:
-                name,email=nm.split("|")
-                at=auth_df.loc[(auth_df["name"]==name) & (auth_df["email"]==email)]
-                nd=AuthorDisplayerAIO(Author(at["email"].values[0],at["name"].values[0],at["commits_authored"].values[0]),c,span_props=dict(className="fw-bold ",style={"cursor":"pointer"})).create_comp()
-                # nd=html.Div()
-                cont_div=dbc.ListGroupItem([
-                        nd
-                ],className="py-1")
-                i+=1
-                list_items.append(cont_div)
-        list_group = dbc.ListGroup(
-        list_items,
-        numbered=True,
-        class_name=" py-3",flush=True
-        )
-        div = html.Div([*contributors,list_group])
-        
-        return div
-
-# @callback(
-#         Output({"type":"author_modal","index":MATCH},"is_open"),
-#         Input({"type":"author_modal_btn","index":MATCH},"n_clicks"),
-#         prevent_initial_call=True
-#         )
-# def open_author_modal(_):
-#         return True
-@callback(
         Output("author_graph","figure"),
         Output("author_loader","display"),
         Input("branch_cache","data"),
