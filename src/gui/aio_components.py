@@ -1,7 +1,7 @@
 from dash import Dash, Output, Input, State, html, dcc, callback, MATCH,clientside_callback,dash_table,ALL
 import uuid
 import dash_bootstrap_components as dbc
-from src._internal import Author
+from src._internal import Author,CommitInfo
 from typing import Iterable
 from math import ceil
 import json
@@ -52,8 +52,8 @@ class AuthorDisplayerAIO():
         if aio_id is None:
             aio_id = str(uuid.uuid4())
         sp_props= span_props.copy() if span_props else {}
-        if "style" not in sp_props:
-            sp_props["style"]=dict(cursor="pointer")
+        if "className" not in sp_props:
+            sp_props["className"]="clickable"
             
         d_props =div_props.copy() if div_props else {}
         
@@ -66,9 +66,11 @@ class AuthorDisplayerAIO():
                 dbc.ModalHeader([html.I(className="bi bi-person-circle h3 pe-3"),html.Span(f"{author.name} <{author.email}>",className="fw-bold")]),
                 dbc.ModalBody([
                     dbc.Container([
-                        html.H6(f"Files Authored: {len(cont)}"),
-                        html.H6(f"Commits Authored: {len(author.commits_authored)}"),
-                        html.H6(f"Files authored list:"),
+
+                        html.H6([html.Span(f"Files Authored: ",className="fw-bold") ,str(len(cont))]),
+                        html.H6([html.Span(f"Commits Authored: ",className="fw-bold") ,str(len(author.commits_authored))]),
+                        html.H6(html.Span("Files authored list: ",className="fw-bold")),
+
                         dbc.Tabs([
                             dbc.Tab(
                                 [
@@ -90,8 +92,7 @@ class AuthorDisplayerAIO():
                     ]),
                 ])
             ],id=self.ids.modal(aio_id),**m_props),
-            html.Span(id=self.ids.button(aio_id),children=f"{author.name} <{author.email}> ",**sp_props),html.Span(text)
-        ])
+            html.Span(id=self.ids.button(aio_id),children=f"{author.name} {text}",**sp_props)
             
     def create_comp(self)->html.Span:
         return self.comp 
@@ -187,7 +188,6 @@ class SATDDisplayerAIO():
         for n,c in satds.items():
             t,content=c.split(" ",1)
             t=re.match(r'[a-zA-Z]+',t).group()
-            #TODO create a custom table component to encapsulate table logic
             rows.append(html.Tr([html.Td(str(n),id=self.satd_ids.table_data(aio_id+f"_table_{str(i)}_line"),style={"cursor":"pointer"},className="fw-bold text-info"),
                                 html.Td(t,id=self.satd_ids.table_data(aio_id+f"_table_{str(i)}_type")),
                                 dbc.Modal([
@@ -206,7 +206,7 @@ class SATDDisplayerAIO():
                 dbc.ModalHeader([html.I(className="bi bi-wrench h3 pe-3"),html.Span(f"{file} SATDs",className="fw-bold")]),
                 dbc.ModalBody([
                     dbc.Container([
-                        html.H6(f"SATDs found: {len(satds.keys())}"),
+                        html.H6([html.Span("SATDs found:",className="fw-bold") ,str(len(satds.keys()))]),
                         table
                         # dash_table.DataTable(satd_df,[{"name": "line", "id": "line"},{"name": "type", "id": "type"},{"name": "content", "id": "placeholder","presentation":"markdown"}],filter_action="native",sort_action="native", id=self.satd_ids.table(aio_id+"_table"),markdown_options={"html":True} ),
                     ]),
@@ -250,50 +250,89 @@ class SATDDisplayerAIO():
         Input(satd_ids.table_data(MATCH), 'n_clicks'),
         prevent_initial_call=True
     )
-    
-    # clientside_callback(
-    # """
-    # function(_,cell, data) {
-    #     if(cell == undefined){
-    #         return window.dash_clientside.no_update;
-    #     }
-    #     const row = cell.row;
-    #     const row_data= data[row];
-    #     const content=row_data.content;
-    #     return content;
-    # }
-    # """,
-    # Output(satd_ids.content(MATCH), 'children'),
-    # Input(satd_ids.button(MATCH), 'n_clicks'),
-    # State(satd_ids.table(MATCH), 'active_cell'),
-    # State(satd_ids.store(MATCH),"data"),#list of objects
-    # )
-    
-    # clientside_callback(
-    # """
-    # function(_) {
-    #     if(_==undefined){
-    #         return window.dash_clientside.no_update;
-    #     }
-    #     return {'is_open':true}
-    # }
-    # """,
-    # Output(satd_ids.modal(MATCH), 'is_open'),
-    # Input(satd_ids.table(MATCH), 'active_cell'),
-    # prevent_inital_call=True
-    # )
 
-    # clientside_callback(
-    # """
-    # function(_) {
-    #     if(_==true){
-    #         return window.dash_clientside.no_update,window.dash_clientside.no_update;
-    #     }
-    #     return [],undefined
-    # }
-    # """,
-    # Output(satd_ids.table(MATCH), 'selected_cells'),
-    # Output(satd_ids.table(MATCH), 'active_cell'),
-    # Input(satd_ids.modal(MATCH), 'is_open'),
-    # prevent_inital_call=True
-    # )
+class CommitDisplayerAIO(): 
+    class ids:
+        modal = lambda aio_id: {
+            'component': 'CommitDisplayerAIO',
+            'subcomponent': 'modal',
+            'aio_id': aio_id
+        }
+        button = lambda aio_id,target: {
+            'component': 'CommitDisplayerAIO',
+            'subcomponent': 'button',
+            'aio_id': aio_id,
+            'target':target
+        }
+        content =lambda aio_id,sub_id: {
+            'component': 'CommitDisplayerAIO',
+            'subcomponent': 'content',
+            'aio_id': aio_id,
+            'sub_id':sub_id
+        }
+        table =lambda aio_id: {
+            'component': 'CommitDisplayerAIO',
+            'subcomponent': 'table',
+            'aio_id': aio_id
+        }
+        store =lambda aio_id: {
+            'component': 'CommitDisplayerAIO',
+            'subcomponent': 'store',
+            'aio_id': aio_id
+        }
+        
+        table_data=lambda aio_id:{
+            'component': 'CommitDisplayerAIO',
+            'subcomponent': 'table_data',
+            'aio_id': aio_id,
+        }
+
+    def __init__(
+        self,
+        commit:CommitInfo,
+        text:str="",
+        modal_props:dict=None,
+        span_props:dict=None,
+        div_props:dict=None,
+        id:str=None
+    ):
+        aio_id=id
+        if id is None:
+            aio_id = str(uuid.uuid4())
+        sp_props= span_props.copy() if span_props else {}
+        if "className" not in sp_props:
+            sp_props["className"]="clickable"
+        d_props =div_props.copy() if div_props else {}
+        m_props = modal_props.copy() if modal_props else {}        
+        self.comp=html.Span([
+            dbc.Modal([
+                dbc.ModalHeader([html.I(className="bi bi-git h3 pe-3"),html.Span(f"Commit {commit.abbr_hash}",className="fw-bold")]),
+                dbc.ModalBody([
+                    dbc.Container([
+                        html.P([html.Span("Commit Message: ",className="fw-bold"), commit.subject] ),
+                        html.P([html.Span("Commit Author: ",className="fw-bold"), f"{commit.author_name} <{commit.author_email}>"]),
+                        html.P([html.Span("Complete hash string: ",className="fw-bold"),commit.commit_hash]),
+                        html.P([html.Span("Created at: ",className="fw-bold") ,commit.date.strftime(r"%d-%m-%Y")]),
+                        html.P([html.Span("Parent hash: ",className="fw-bold"),html.Span(commit.parent,id=self.ids.content(aio_id,"parent")),dcc.Clipboard(
+                        target_id=self.ids.content(aio_id,"parent"),
+                        title="copy",
+                        className="d-inline clickable"
+                        ),],)
+                    ]),
+                ])
+            ],id=self.ids.modal(aio_id),size="lg",**m_props),
+            html.Span(id=self.ids.button(aio_id,"modal"),children=f"{commit.abbr_hash} {text}",**sp_props)
+        ])
+    def create_comp(self)->html.Span:
+        return self.comp 
+
+    clientside_callback(
+    """
+    function(_,) {
+        return true;
+    }
+    """,
+    Output(ids.modal(MATCH), 'is_open'),
+    Input(ids.button(MATCH,"modal"), 'n_clicks'),
+    prevent_initial_call=True
+    )

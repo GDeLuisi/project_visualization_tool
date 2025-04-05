@@ -1,0 +1,7 @@
+.clickable {
+    cursor: pointer;
+    font-weight: bold;
+}
+.clickable:hover {
+    color: lightblue;
+}

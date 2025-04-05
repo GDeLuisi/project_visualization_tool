@@ -230,11 +230,12 @@ def populate_treemap(_,b,name,email,doa,data,cache):
         Output("file_cache","data"),
         Output("file-info-header","children"),
         Input("dir_treemap","clickData"),
+        Input("branch_picker","value"),
         State("repo_path","data"),
         State("file_cache","data"),
         State("file-info-header","children"),
 )
-def populate_file_info(data,path,cache,children):
+def populate_file_info(data,_,path,cache,children):
         if not data:
                 return no_update,no_update,no_update,no_update
         file=data["points"][0]["id"]
@@ -311,4 +312,4 @@ def populate_author_picker(name,cache):
         Input("author_picker","value"),
 )
 def populate_author_picker(val,auval):
-        return val==None and auval==None
+        return val==None or auval==None
