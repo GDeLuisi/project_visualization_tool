@@ -124,7 +124,7 @@ def test_get_tracked_files(repo_miner):
     files=set()
     for branch in repo_miner.get_branches(False):
         files.update(repo_miner.get_commit_files(branch.name))
-    assert files==set(repo_miner.get_tracked_dirs())
+    assert files==set(repo_miner.get_tracked_files())
     
 def test_get_tracked_dirs(repo_miner):
     tracked=set(repo_miner.get_tracked_dirs())
