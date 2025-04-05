@@ -254,7 +254,7 @@ class CustomTable():
         logger.debug(f"Sort: {target}",extra={"component":"CustomTable","data":data[0][target]})
         sorter = sorter_provider(filters["sorters"][target])
         reverse=_[0]%2==0
-        logger.debug(f"Chose sorter: {filters["sorters"][target]}",extra={"component":"CustomTable"})
+        logger.debug(f"Chose sorter: {filters['sorters'][target]}",extra={"component":"CustomTable"})
         if not sorter:
             sorted_data=sorted(data,key=lambda d: d[target],reverse=reverse)
         else:
