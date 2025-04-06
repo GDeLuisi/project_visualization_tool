@@ -4,7 +4,7 @@ from typing import Union,Optional
 from datetime import date
 from pathlib import Path
 from waitress import serve,server
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor,ProcessPoolExecutor
 from src._internal import RepoMiner
 import pandas as pd
 import dash_bootstrap_components as dbc
@@ -53,9 +53,9 @@ def start_app(repo_path:Union[str|Path],cicd_test:bool,env:bool):
                 dbc.Col(
                         children=[
                             dbc.Container([
-                            dcc.Loading(children=[
+                            dcc.Loading(fullscreen=True,children=[
                                 dcc.Store(id="commit_df_cache",storage_type="memory"),
-                                ],className="d-inline"),
+                                ]),
                             ],fluid=True),
                             page_container
                             ],
@@ -83,7 +83,7 @@ def listen_data(_,data,cache):
         if cache and _==0:
             return no_update,no_update,no_update,no_update
         rp=RepoMiner(data)
-        with ThreadPoolExecutor() as executor:
+        with ProcessPoolExecutor() as executor:
             result=executor.submit(rp.get_truck_factor)
         set_props("branch_picker",{"options":list(( b.name for b in rp.get_branches(deep=False)))})
         # set_props("author_loader",{"display":"show"})
@@ -101,8 +101,6 @@ def listen_data(_,data,cache):
         commit_df["dow_n"]=commit_df["date"].dt.day_of_week
         for author in rp.get_authors():
             authors=pd.concat([authors,author.get_dataframe()])
-        # set_props("author_loader_graph",{"display":"auto"})
-        # set_props("author_loader",{"display":"auto"})
         tr_fa,contributions=result.result()
         contributions=dict([(f"{a.name}|{a.email}",c) for a,c in contributions.items()])
         return commit_df.to_dict("records"),tr_fa,contributions,authors.to_dict("records")
