@@ -57,15 +57,15 @@ layout = dbc.Container([
                 dbc.Tab(
                         [
                         dbc.Row(id="author_graph_row",children=[
+                                html.Div([
+                                                dcc.RadioItems(id="x_picker",options=[{"label":"Day of week","value":"dow"},{"label":"Per date","value":"date"}],value="dow",inline=True,labelClassName="px-2"),
+                                                ]),
                         dbc.Col(
                                 [
                                         dcc.Loading(id="author_loader_graph",
                                         children=[dcc.Graph(id="graph",className="h-100")],
                                         overlay_style={"visibility":"visible", "filter": "blur(2px)"},
                                 ),
-                                        html.Div([
-                                                dcc.RadioItems(id="x_picker",options=[{"label":"Day of week","value":"dow"},{"label":"Per date","value":"date"}],value="dow",inline=True,labelClassName="px-2"),
-                                                ]),
                                 ],width=8,align="center"),
                         
                         dbc.Col([
@@ -77,20 +77,21 @@ layout = dbc.Container([
                                 ],width=4),
                         ],justify="center"),
                 dbc.Row([
-                        dbc.Col([
-                                dcc.Loading(id="author_loader",children=[
-                                        dcc.Graph(id="author_graph")
-                                        ],
-                                        overlay_style={"visibility":"visible", "filter": "blur(2px)"},
-                                        ),
-                                dcc.Slider(id="date_slider",marks=None, tooltip={"placement": "bottom", "always_visible": False,"transform": "timestampToUTC"},),
-                                ],width=12),
+                        
                 ])
                 ],label="General overview"
                 ),
                 dbc.Tab(label="Authors",children=[
                                         dbc.Row(children=[
                                                 dbc.Col(width=12,align="center",id="authors_table"),
+                                                dbc.Col([
+                                                dcc.Loading(id="author_loader",children=[
+                                                        dcc.Graph(id="author_graph")
+                                                        ],
+                                                        overlay_style={"visibility":"visible", "filter": "blur(2px)"},
+                                                        ),
+                                                dcc.Slider(id="date_slider",marks=None, tooltip={"placement": "bottom", "always_visible": False,"transform": "timestampToUTC"},),
+                                                ],width=12,class_name="pb-4"),
                                         ],justify="center"),]),
                 dbc.Tab(label="Commits",children=[                                                  
                                         dbc.Row(children=[
