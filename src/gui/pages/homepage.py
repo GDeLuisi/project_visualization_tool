@@ -160,11 +160,13 @@ def populate_truck_info(tf,contributions):
         Input("branch_cache","data")
 )
 def populate_commits_tab(data):
+        if not data:
+                return no_update
         data_to_show=list()
         for d in data:
                 nd={
                         "Commit hash":CommitDisplayerAIO(CommitInfo(
-                                d["commit_hash"],d["abbr_hash"],d["tree"],d["parent"],d["refs"],d["subject"],d["author_name"],d["author_email"],datetime.fromisoformat(d["date"]).date(),d["files"])).create_comp(),
+                                d["commit_hash"],d["abbr_hash"],d["tree"],d["refs"],d["subject"],d["author_name"],d["author_email"],datetime.fromisoformat(d["date"]).date())).create_comp(),
                         "Full hash":d["commit_hash"],
                         "Author Name":d["author_name"],
                         "Date":datetime.fromisoformat(d["date"]).strftime(r"%d-%m-%Y"),
@@ -196,6 +198,8 @@ def populate_authors_tab(contributions,data,doa_th=0.75):
         State("branch_picker","value"),
 )
 def update_count_graph(pick,data,branch):
+        if not data:
+                return no_update
         commit_df=pd.DataFrame(data)
         if pick =="dow":
                 count_df=commit_df.groupby(["dow","dow_n"])
@@ -289,6 +293,8 @@ def populate_author_graph(data,value):
         Input("branch_cache","data"),
 )
 def adjust_date_slider(data):
+        if not data:
+                return no_update
         df=pd.DataFrame(data)
         df["date"]=pd.to_datetime(df["date"])
         min_date=df["date"].min()

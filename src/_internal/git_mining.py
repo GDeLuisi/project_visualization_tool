@@ -11,12 +11,13 @@ from git import Git,Repo,Blob,Commit,exc
 from io import BytesIO
 import re
 import os
+import ujson
 from math import log1p
 from threading import Thread,Lock
 from concurrent.futures import ProcessPoolExecutor,ThreadPoolExecutor
 from logging import getLogger
 from functools import cached_property
-from src.utility.helper import infer_programming_language
+from src.utility.helper import infer_programming_language,remove_control_characters
 import json
 logger=getLogger("Repo Miner")
     
@@ -53,7 +54,9 @@ def _calculate_DOA(kwargs)->dict[Author,float]:
                     
             return author_DOA
 class RepoMiner():
-    COMMIT_PRETTY_FORMAT='--pretty=format:{"commit": "%H","abbreviated_commit": "%h","tree": "%T","abbreviated_tree": "%t","parent": "%P","abbreviated_parent": "%p","refs": "%D","encoding": "%e","subject": "%s","sanitized_subject_line": "%f","commit_notes": "%N","verification_flag": "%G?","signer": "%GS","signer_key": "%GK","author": {"name": "%aN","email": "%aE","date": "%aD"},"commiter": {"name": "%cN","email": "%cE","date": "%cI"}}|'
+    # COMMIT_PRETTY_FORMAT='--pretty=format:{"commit": "%H","abbreviated_commit": "%h","tree": "%T","abbreviated_tree": "%t","parent": "%P","abbreviated_parent": "%p","refs": "%D","encoding": "%e","subject": "%s","sanitized_subject_line": "%f","commit_notes": "%N","verification_flag": "%G?","signer": "%GS","signer_key": "%GK","author": {"name": "%aN","email": "%aE","date": "%aD"},"commiter": {"name": "%cN","email": "%cE","date": "%cI"}}|'
+    COMMIT_PRETTY_FORMAT='--pretty=format:{"commit": "%H","refs": "%D","tree": "%T","subject": "%s","author": {"name": "%aN","email": "%aE","date": "%aD"}}|'
+
     repo_lock=Lock()
     def __init__(self,repo_path:Union[Path,str],deep:bool=False):
         self.repo_path=repo_path
@@ -61,7 +64,7 @@ class RepoMiner():
             self.repo_path=repo_path.as_posix()
         self.repo=Repo(self.repo_path)
         self.git_repo=self.repo.git
-        self.tree=self.get_dir_structure()
+        # self.tree=self.get_dir_structure()
         # self.update()
         #"--no-merges","--no-commit-header",f"--max-count={max_count}",'--pretty=format:{"commit": "%H","abbreviated_commit": "%h","tree": "%T","abbreviated_tree": "%t","parent": "%P","abbreviated_parent": "%p","refs": "%D","encoding": "%e","subject": "%s","sanitized_subject_line": "%f","body": "%b","commit_notes": "%N","verification_flag": "%G?","signer": "%GS","signer_key": "%GK","author": {"name": "%aN","email": "%aE","date": "%aD"},"commiter": {"name": "%cN","email": "%cE","date": "%cD"}}',last_revision),pattern=r'\r\n|\n|\r'
     def _load_commits_date_range(self,start_date:Optional[date]=None,end_date:Optional[date]=None)->list[str]:
@@ -121,41 +124,41 @@ class RepoMiner():
         finished=False
         while not finished:
             with self.repo_lock:
-                logs_uf=re.split(string=self.git_repo.log(arglist),pattern=r'\|\r\n|\|\n|\|\r|\|')[:-1]
-            # logger.debug("Loaded commits",extra={"commits":logs})
+                res=self.git_repo.log(arglist)[:-1]
+                logs_uf=re.split(string=res,pattern=r'\|\r\n|\|\n|\|\r')
+            logger.debug("Loaded commits",extra={"commits":res})
             if not logs_uf or not logs_uf[0] :
                 logger.debug("Finished Loading")
                 finished=True
                 return []
-            logs:list[str]=[]
             try:
-                for log in logs_uf:
-                    log=re.sub(string=log,pattern=r'\'|\r\n|\n|\r',repl=" ")
-                    l=re.sub(string=log,pattern=r' \"([^"]+)\"[\"|\s](\,\")?',repl=lambda m: m.group(1)+'\"'+m.group(2) if m.group(2)  else ' ')
-                    logs.append(json.loads(l))
-            except json.JSONDecodeError as e:
+                commit_list:list[CommitInfo]=[]
+                for log_j in logs_uf:
+                    # log=re.sub(string=log,pattern=r'\'|\r\n|\n|\r',repl=" ")
+                    # l=re.sub(string=log,pattern=r' \"([^"]+)\"[\"|\s](\,\")?',repl=lambda m: m.group(1)+'\"'+m.group(2) if m.group(2)  else ' ')
+                    l=re.sub(string=log_j,pattern=r'"subject": "(.+?(?=","))',repl=lambda m: '"subject": "'+remove_control_characters(m.group(1)).replace('"','').replace('\\',''))
+                    l=re.sub(string=l,pattern=r'"name": "(.+?(?=","))',repl=lambda m: '"name": "'+remove_control_characters(m.group(1)).replace('"','').replace('\\',''))
+                    log=json.loads(l)
+                    commit_info=CommitInfo(
+                                author_email=log["author"]["email"],
+                                author_name=log["author"]["name"],
+                                commit_hash=log["commit"],
+                                abbr_hash=log["commit"][:5],
+                                tree=log["tree"],
+                                refs=log["refs"],
+                                subject=log["subject"],
+                                date=date.fromtimestamp(mktime(strptime(log["author"]["date"],"%a, %d %b %Y %H:%M:%S %z"))),
+                                )
+                    commit_list.append(commit_info)
+            except Exception as e:
                 # logger.critical(str(e))
                 logger.critical("Something went wrong with commits loading process")
                 logger.critical(str(e))
-                logger.critical(f"Faulty object original {log}")
+                logger.critical(f"Faulty object original {log_j}")
                 logger.critical(f"Faulty object {l}")
                 exit(1)
-            last_revision=logs[0]["commit"].split(" ")[0]
-            commit_list:list[CommitInfo]=[]
-            for log in logs:
-                commit_info=CommitInfo(
-                                                    author_email=log["author"]["email"],
-                                                    author_name=log["author"]["name"],
-                                                    commit_hash=log["commit"],
-                                                    abbr_hash=log["abbreviated_commit"],
-                                                    tree=log["tree"],
-                                                    refs=log["refs"],
-                                                    subject=log["subject"],
-                                                    date=date.fromtimestamp(mktime(strptime(log["author"]["date"],"%a, %d %b %Y %H:%M:%S %z"))),
-                                                    parent=log["parent"],
-                                                    files=[])
-                commit_list.append(commit_info)
-            next_revision=commit_info.parent.strip().split(" ")[0]
+            last_revision=commit_list[0].commit_hash.split(" ")[0]
+            next_revision=commit_list[-1].commit_hash.strip().split(" ")[0]
             yield commit_list
             if follow:
                 # file=arglist.pop()

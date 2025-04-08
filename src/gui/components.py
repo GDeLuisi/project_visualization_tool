@@ -188,7 +188,7 @@ class CustomTable():
         prevent_initial_call=True
     )
     def filter_data(text,orig_data,filters,in_id):
-        if not in_id[0]:
+        if not in_id[0] or not text:
             return no_update
         filtered_indexes=set()
         text_dict=dict()
@@ -200,7 +200,7 @@ class CustomTable():
             for target,text_to_use in text_dict.items():
                 filter=filter_dict[target]
                 res=filter.fun(text_to_use,d[target])
-                logger.debug(f"Filter result for {target} is {res} ",extra={"component":"CustomTable"})
+                # logger.debug(f"Filter result for {target} is {res} ",extra={"component":"CustomTable"})
                 if res:
                     filtered_indexes.add(i)
                 else:
@@ -247,7 +247,7 @@ class CustomTable():
         prevent_initial_call=True
     )
     def sort_data(_,data,filters):
-        if data==None or _==None :
+        if data==None or _==None or _==0:
             return no_update
         target=ctx.triggered_id["target"]
         # ids=btn_id

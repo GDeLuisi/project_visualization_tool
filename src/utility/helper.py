@@ -3,7 +3,11 @@ from typing import Iterable,Literal,Union,Callable
 from math import log1p
 import json
 import pandas as pd
+import unicodedata
 logger=getLogger("helper")
+
+def remove_control_characters(s):
+    return "".join(ch for ch in s if unicodedata.category(ch)[0]!="C")
 
 def infer_programming_language(files:Iterable[str],threshold:float=0.35)->list[str]:
         suffix_count:dict[str,int]=dict()
@@ -46,3 +50,21 @@ class JSONSerializebleAdapter():
         if type=="str":
             var_dict=json.dumps(var_dict)
         return var_dict
+    
+class LazyLoader():
+    def next(self):
+        raise NotImplementedError()
+    
+class Singleton(type):
+    loaders_registry=dict()
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls.loaders_registry:
+            # print(f"{cls} not found")
+            instance = super().__call__(*args, **kwargs)
+            cls.loaders_registry[cls] = instance
+        return cls.loaders_registry[cls]
+    def __exist__(instance)->bool:
+        return instance in Singleton.loaders_registry
+    def __delete__(instance):
+        Singleton.loaders_registry.pop(instance)
+

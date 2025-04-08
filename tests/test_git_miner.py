@@ -144,15 +144,6 @@ def test_get_author_commits(repo_miner):
     logger.debug(f"Totlist: {totlist}\nSum: {sumlist}")
     assert totlist == sumlist
 
-def test_track_bug():
-    pass
-
-def test_get_diff(repo_miner):
-    # diff = repo_miner.get_diff(repository_path,Path(repository_path).joinpath("main.py").as_posix())
-    # info(diff)
-    # assert diff != {}
-    pass
-
 # def test_get_file_authors(repo_miner):
 #     main_set=set([Author("deluisigerardo@gmail.com","Gerardo De Luisi"),Author("102797969+GDeLuisi@users.noreply.github.com","GeggeDL")])
 #     ret_set=set(repo_miner.get_file_authors(Path.cwd().joinpath(".github","workflows","test-dev.yml")))
@@ -162,11 +153,6 @@ def test_get_diff(repo_miner):
 #             assert False
 #     assert True
 
-def test_get_bug_introducing_commit():
-    pass
-
-def test_get_bug_resolving_commit():
-    pass
 #date.fromisoformat("2025-02-10") date.fromisoformat("2025-02-12")
 #TODO make it more comprehensive of equivalence classes on extreme values
 commits_args=[

@@ -59,13 +59,11 @@ class CommitInfo(DataFrameAdapter):
     commit_hash:str
     abbr_hash:str
     tree:str
-    parent:str
     refs:str
     subject:str
     author_name:str
     author_email:str
     date:date
-    files:list[str]
     
 @dataclass
 class Branch(DataFrameAdapter):
