@@ -1,5 +1,4 @@
 from pytest import mark,raises,fixture
-import _internal.git_mining as gm
 from pathlib import Path
 from _internal.file_parser import fetch_source_files,find_comments_with_locations,find_file_comments_with_locations,find_satd,find_satd_file
 from typing import Generator
