@@ -1,11 +1,9 @@
-from dash import Dash, Output, Input, State, html, dcc, callback, MATCH,clientside_callback,dash_table,ALL
+from dash import Output, Input, State, html, dcc, callback, MATCH,clientside_callback,ALL
 import uuid
 import dash_bootstrap_components as dbc
-from src._internal import Author,CommitInfo
+from repository_miner.data_typing import Author,CommitInfo
 from typing import Iterable
 from math import ceil
-import json
-import pandas as pd
 import re
 class AuthorDisplayerAIO(): 
     class ids:

@@ -24,6 +24,7 @@ classifiers = [
 ]
 keywords = ["git","projects","visualization-tool"]
 dependencies = [
+    "repominer-GDeLuisi",
     "blinker",
     "build",
     "certifi",

@@ -1,5 +1,5 @@
 from logging import getLogger
-from typing import Iterable,Literal,Union,Callable
+from typing import Iterable,Literal,Union,Callable,Type
 from math import log1p
 import json
 import pandas as pd
@@ -28,33 +28,17 @@ def infer_programming_language(files:Iterable[str],threshold:float=0.35)->list[s
                 ret_suffixes.append("."+suff)
         return ret_suffixes
 
-class DataFrameAdapter():
-    def __init__(self):
-        pass
-    def get_dataframe(self)->pd.DataFrame:
-        var_dict=self.__dict__.copy()
-        for k,v in var_dict.items():
-            var_dict[k]=[v]
-        df=pd.DataFrame(var_dict)
-        return df        
-class JSONSerializebleAdapter():
-    def __init__(self):
-        pass
-    def JSON_serialize(self,type:Literal["dict","str"]="dict")->Union[dict,str]:
-        if type not in ["dict","str"]:
-            raise TypeError()
-        var_dict=self.__dict__.copy()
-        for k,v in var_dict.items():
-            if isinstance(v,JSONSerializebleAdapter):
-                var_dict[k]=v.JSON_serialize()
-        if type=="str":
-            var_dict=json.dumps(var_dict)
-        return var_dict
-    
-class LazyLoader():
-    def next(self):
-        raise NotImplementedError()
-    
+def get_dataframe(object : object)->pd.DataFrame:
+    var_dict=object.__dict__.copy()
+    for k,v in var_dict.items():
+        var_dict[k]=[v]
+    df=pd.DataFrame(var_dict)
+    return df  
+
+def serialize_object(object: object,encoder:Type=json.JSONEncoder)->str:
+    var_dict=object.__dict__.copy()
+    return json.dumps(var_dict,skipkeys=True,cls=encoder)
+
 class Singleton(type):
     loaders_registry=dict()
     def __call__(cls, *args, **kwargs):

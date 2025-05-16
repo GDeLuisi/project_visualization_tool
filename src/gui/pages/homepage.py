@@ -1,13 +1,14 @@
 import dash
 from dash import dcc,callback,Input,Output,no_update,set_props,State,clientside_callback,Patch,ctx,MATCH
-from src._internal import RepoMiner,make_commit_dataframe,prune_common_commits,getMaxMinMarks,unixTimeMillis,unixToDatetime
 from typing import Iterable
 import dash.html as html
 from datetime import date
 import plotly.express as px
 import pandas as pd
 from pathlib import Path
-from src._internal.data_typing import Author,CommitInfo,TreeStructure,File,Folder
+from repository_miner import RepoMiner
+from repository_miner.data_typing import CommitInfo
+from src._internal.data_typing import Author,TreeStructure,File,Folder
 import dash_bootstrap_components as dbc
 from io import StringIO
 import json
@@ -84,14 +85,14 @@ layout = dbc.Container([
                 dbc.Tab(label="Authors",children=[
                                         dbc.Row(children=[
                                                 dbc.Col(width=12,align="center",id="authors_table"),
-                                                dbc.Col([
-                                                dcc.Loading(id="author_loader",children=[
-                                                        dcc.Graph(id="author_graph")
-                                                        ],
-                                                        overlay_style={"visibility":"visible", "filter": "blur(2px)"},
-                                                        ),
-                                                dcc.Slider(id="date_slider",marks=None, tooltip={"placement": "bottom", "always_visible": False,"transform": "timestampToUTC"},),
-                                                ],width=12,class_name="pb-4"),
+                                                # dbc.Col([
+                                                # dcc.Loading(id="author_loader",children=[
+                                                #         dcc.Graph(id="author_graph")
+                                                #         ],
+                                                #         overlay_style={"visibility":"visible", "filter": "blur(2px)"},
+                                                #         ),
+                                                # dcc.Slider(id="date_slider",marks=None, tooltip={"placement": "bottom", "always_visible": False,"transform": "timestampToUTC"},),
+                                                # ],width=12,class_name="pb-4"),
                                         ],justify="center"),]),
                 dbc.Tab(label="Commits",children=[                                                  
                                         dbc.Row(children=[
@@ -103,6 +104,7 @@ layout = dbc.Container([
                 ]),
         # html.Div(id="test-div")
 ],fluid=True,className="p-10")
+
 @callback(
         Output("general_info","children"),
         Input("branch_cache","data"),
@@ -115,9 +117,9 @@ def populate_generale_info(cache,authors,branch,path,):
                 return no_update
         rp=RepoMiner(path)
         num_commits=len(cache)
-        current_head=rp.repo.active_branch.name if not branch else branch
+        current_head=rp.git.rev_parse(["--abbrev-ref","HEAD"]) if not branch else branch
         num_authors=len(authors)
-        current_commit=rp.get_commit(commit_hash=branch if branch else None)
+        current_commit=rp.get_commit(branch if branch else current_head)
         div=dbc.ListGroup(
                 [
                         dbc.ListGroupItem([html.I(className="bi bi-graph-up pe-3 d-inline ms-2"),html.Span(f"Total number of commits: {num_commits}")]),
@@ -137,24 +139,20 @@ def populate_generale_info(cache,authors,branch,path,):
         State("contribution_cache","data"),
 )
 def populate_truck_info(tf,contributions):
-        sum_doa=0
-        count=0
-        for nm,c in contributions.items():
-                for file,doa in c.items():
-                        sum_doa+=doa
-                        count+=1
-        avg_doa=round(float(sum_doa/count),2)
+        contrs=pd.DataFrame(contributions)
+        avg_doa=contrs["DOA"].aggregate("mean")
         div=dbc.ListGroup(
                 [       
                         dbc.ListGroupItem([html.Span("Calculated value: "+str(tf),className="ms-2"),html.Br(),]),
-                        dbc.ListGroupItem([html.Span("Project's files' avarage DOA: "+str(avg_doa),className="ms-2"),html.Br(),]),
-                        dbc.ListGroupItem([html.Span("Number of analyzed files: "+str(int(count/len(contributions.keys()))),className="ms-2"),html.Br(),])
+                        dbc.ListGroupItem([html.Span("Project's files' avarage DOA: "+str(round(avg_doa,2)),className="ms-2"),html.Br(),]),
+                        dbc.ListGroupItem([html.Span("Number of analyzed files: "+str(len(contrs["fname"].unique())),className="ms-2"),html.Br(),])
                 ]
         ,class_name=" py-3",flush=True)
         return html.Div([
                 html.I(className="bi bi-truck pe-3 d-inline h2"),html.Span("Truck factor",className="fw-bold h2"),
                 div
         ])
+
 @callback(
         Output("commits_table","children"),
         Input("branch_cache","data")
@@ -180,9 +178,12 @@ def populate_commits_tab(data):
         Input("authors_cache","data")
 )
 def populate_authors_tab(contributions,data,doa_th=0.75):
+        if not contributions:
+                return no_update
+        contr=pd.DataFrame(contributions)
         data_to_show=list()
         for d in data:
-                author,cont=Author(d["email"],d["name"],d["commits_authored"]),[file for file, doa in contributions[f"{d['name']}|{d['email']}"].items() if doa >= doa_th]
+                author,cont=Author(d["email"],d["name"],d["commits_authored"]),contr.loc[contr["author"]==d["name"]]["fname"].tolist()
                 nd={
                         "Author":AuthorDisplayerAIO(author,cont).create_comp(),
                         "Email":d["email"],
@@ -219,11 +220,9 @@ def update_pie_graph(data):
         df=pd.DataFrame(data)
         df["contributions"]=df["commits_authored"].apply(lambda r: len(r))
         df=df.groupby("name",as_index=False).sum(True)
-        # print(df.head())
         tot:int=df["contributions"].sum()
         th_percentage=5*tot/100
         df.loc[df['contributions'] < th_percentage, 'name'] = 'Minor contributors total effort'
-        # print(df.head())
         fig = px.pie(df, values='contributions', names='name', title='Authors contribution to the project')
         return fig
 
@@ -233,26 +232,22 @@ def update_pie_graph(data):
         State("authors_cache","data")
 )
 def populate_contributors(contributions,authors,th=0.75):
-        contrs:dict[str,Iterable[str]]=dict()
+        if not contributions:
+                return no_update
+        contrs=pd.DataFrame(contributions)
         auth_df=pd.DataFrame(authors)
-        
-        for nm,c in contributions.items():
-                contrs[nm]=list()
-                for file,doa in c.items():
-                        if doa >= th:
-                                contrs[nm].append(file)
-        contrs=sorted([(ne,files) for ne,files in contrs.items()] ,key=lambda t:len(t[1]),reverse=True)
-        contrs=contrs[:3] if len(contrs)>=3 else contrs
+        contrs=contrs.loc[contrs["DOA"]>=th]
+        top_3=contrs.groupby("author").count().reset_index(drop=False)
+        top_3=top_3.sort_values("DOA",ascending=False).head(3)
         contributors=[html.I(className="bi bi-trophy-fill d-inline h3 pe-3"),
-                html.H4(f"Your project's top {len(contrs)} contributors:",className="d-inline fw-bold")
+                html.H4(f"Your project's top {top_3['DOA'].size} contributors:",className="d-inline fw-bold")
         ]
         i=1
         list_items=[]
-        for nm,c in contrs:
-                name,email=nm.split("|")
-                at=auth_df.loc[(auth_df["name"]==name) & (auth_df["email"]==email)]
-                nd=AuthorDisplayerAIO(Author(at["email"].values[0],at["name"].values[0],at["commits_authored"].values[0]),c,text=f"<{at['email'].values[0]}>").create_comp()
-                # nd=html.Div()
+        for author in top_3.itertuples("Author"):
+                name=author.author
+                at=auth_df.loc[(auth_df["name"]==name)].head(1)
+                nd=AuthorDisplayerAIO(Author(at["email"],at["name"].values[0],at["commits_authored"].values[0]),contrs.loc[contrs["author"]==name]["fname"].tolist()).create_comp()
                 cont_div=dbc.ListGroupItem([
                         nd
                 ],className="py-1")
@@ -266,41 +261,3 @@ def populate_contributors(contributions,authors,th=0.75):
         div = html.Div([*contributors,list_group])
         
         return div
-
-@callback(
-        Output("author_graph","figure"),
-        Output("author_loader","display"),
-        Input("branch_cache","data"),
-        Input("date_slider","value"),
-)
-def populate_author_graph(data,value):
-        if not value:
-                return no_update,no_update
-        df=pd.DataFrame(data)
-        df["date"]=pd.to_datetime(df["date"])
-        dt=unixToDatetime(value if isinstance(value,int) else value[0])
-        # print(count_df["date"].tolist())
-        df=df.loc[df["date"].dt.date <= dt.date()]
-        count_df=df.groupby(["author_name"]).size().reset_index(name="commit_count")
-        fig=px.bar(count_df,x="commit_count",y="author_name",labels=common_labels,title="Authors effort over time",color="author_name")
-        return fig,"auto"
-
-@callback(
-        Output("date_slider","min"),
-        Output("date_slider","max"),
-        Output("date_slider","value"),
-        Output("date_slider","marks"),
-        Input("branch_cache","data"),
-)
-def adjust_date_slider(data):
-        if not data:
-                return no_update
-        df=pd.DataFrame(data)
-        df["date"]=pd.to_datetime(df["date"])
-        min_date=df["date"].min()
-        max_date=df["date"].max()
-        min=unixTimeMillis(min_date)#the first date
-        max=unixTimeMillis(max_date)#the last date
-        value=int(max-(max-min)/2)#default: the first
-        marks=getMaxMinMarks(min_date,max_date)
-        return min,max,value,marks
