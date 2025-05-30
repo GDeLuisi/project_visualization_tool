@@ -249,7 +249,7 @@ class SATDDisplayerAIO():
         prevent_initial_call=True
     )
 
-class CommitDisplayerAIO(): 
+class CommitDisplayerAIO():
     class ids:
         modal = lambda aio_id: {
             'component': 'CommitDisplayerAIO',

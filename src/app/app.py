@@ -44,7 +44,9 @@ def start_app(repo_path:Union[str|Path],cicd_test:bool,env:bool):
         ])
     app.layout = html.Div([
         dcc.Store(id="contribution_cache"),
-        dcc.Store(id="truck_cache"),
+        dcc.Loading(children=[
+            dcc.Store(id="truck_cache"),
+            ],fullscreen=True),
         dcc.Store(id="branch_cache"),
         dcc.Store(id="authors_cache"),
         dcc.Store("repo_path",data=path,storage_type="session"),
@@ -105,13 +107,13 @@ def load_authors(_,data):
 @callback(
     Output("truck_cache","data"),
     Output("contribution_cache","data"),
-    Input("repo_path","data"),
+    Input("reload_button","n_clicks"),
+    State("repo_path","data"),
 )
-def load_truck_info(data):
-    with ProcessPoolExecutor() as exector:
-        contributions=tf_calculator.compute_DOA(tf_calculator.create_contribution_dataframe(data,only_of_files=False))
-        tf_contributions=tf_calculator.filter_files_of_interest(contributions)
-        tr_fa=tf_calculator.compute_truck_factor_from_contributions(tf_contributions)
+def load_truck_info(_,data):
+    contributions=tf_calculator.compute_DOA(tf_calculator.create_contribution_dataframe(data,only_of_files=False))
+    tf_contributions=tf_calculator.filter_files_of_interest(contributions)
+    tr_fa=tf_calculator.compute_truck_factor_from_contributions(tf_contributions)
     return tr_fa,contributions.to_dict("records")
 
 @callback(

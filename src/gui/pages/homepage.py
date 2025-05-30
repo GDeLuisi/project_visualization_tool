@@ -1,5 +1,6 @@
 import dash
 from dash import dcc,callback,Input,Output,no_update,set_props,State,clientside_callback,Patch,ctx,MATCH
+from dash.exceptions import PreventUpdate
 from typing import Iterable
 import dash.html as html
 from datetime import date
@@ -11,6 +12,7 @@ from repository_miner.data_typing import CommitInfo
 from src._internal.data_typing import Author,TreeStructure,File,Folder
 import dash_bootstrap_components as dbc
 from io import StringIO
+from dash_ag_grid import AgGrid
 import json
 import time
 from src.gui import AuthorDisplayerAIO,CustomTable,CommitDisplayerAIO
@@ -25,8 +27,31 @@ truck_facto_modal=dbc.Modal(
                 dbc.ModalBody("The truck factor is calculated through a naive version of the AVL algorithm for truck factor calculation; the DOA (Degree of Authorship) used for truck factor calculation is obtained evaluating the number of non-whitespace commits authored by each author (it will not take into account the number of lines changed) for each file of the project. The final number it is the result of an operation of thresholding for which we discard all DOA normalized values inferior to 0.75, the resulting DOAs obtained from the filtering process are then used to estabilish the number of file authored by each author in order to lazily remove each author from the calculation until at least 50% of project's file are 'orphans'(no file author alive). The number of author to remove in order to satisfy the previous condition is the effective truck factor calculated for the project" ),
         ],"truck_factor_modal",is_open=False
 )
+
+column_defs_commits=[
+                {"field": "commit_hash", 'headerName': 'Commit Hash',"filter": "agTextColumnFilter"},
+                {"field": "author_name",'headerName': 'Author Name',"filter": "agTextColumnFilter"},
+                {
+                        "field":"date",
+                        "headerName":"Date",
+                        "headerName": "Date",
+                        "filter": "agDateColumnFilter",
+                        "sortable":True,
+                        # "valueGetter": {"function": "d3.timeParse('%d-%m-%Y')(params.data.date)"},
+                        # "valueFormatter": {"function": "params.data.date"}
+                }
+        ]
+
+column_defs_authors=[
+        {"field": "email", 'headerName': 'Author Email',"filter": "agTextColumnFilter"},
+        {"field": "name",'headerName': 'Author Name',"filter": "agTextColumnFilter"},
+        {"field": "commits_authored",'headerName': 'Commits Authored',"sortable":True},
+        {"field": "files_authored",'headerName': 'Files Authored',"sortable":True},
+]
+
 layout = dbc.Container([
         truck_facto_modal,
+        
         dbc.Row(id="repo_graph_row",children=[
                 dbc.Col(
                         [       
@@ -84,19 +109,27 @@ layout = dbc.Container([
                 ),
                 dbc.Tab(label="Authors",children=[
                                         dbc.Row(children=[
-                                                dbc.Col(width=12,align="center",id="authors_table"),
-                                                # dbc.Col([
-                                                # dcc.Loading(id="author_loader",children=[
-                                                #         dcc.Graph(id="author_graph")
-                                                #         ],
-                                                #         overlay_style={"visibility":"visible", "filter": "blur(2px)"},
-                                                #         ),
-                                                # dcc.Slider(id="date_slider",marks=None, tooltip={"placement": "bottom", "always_visible": False,"transform": "timestampToUTC"},),
-                                                # ],width=12,class_name="pb-4"),
+                                                dbc.Col(width=12,align="center",id="authors_tab",children=[
+                                                AgGrid(
+                                                id="authors_table",
+                                                columnDefs=column_defs_authors,
+                                                columnSize="responsiveSizeToFit",
+                                                defaultColDef={"sortable":False,"resizable":True},
+                                                dashGridOptions={"pagination": True, "animateRows": False},
+                                                )
+                                                        ]),
                                         ],justify="center"),]),
                 dbc.Tab(label="Commits",children=[                                                  
                                         dbc.Row(children=[
-                                                dbc.Col(width=12,align="center",id="commits_table"),
+                                                dbc.Col(width=12,align="center",id="commits_tab",children=[
+                                                AgGrid(
+                                                id="commits_table",
+                                                columnDefs=column_defs_commits,
+                                                columnSize="responsiveSizeToFit",
+                                                defaultColDef={"sortable":False,"resizable":True},
+                                                dashGridOptions={"pagination": True, "animateRows": False},
+                                                )
+                                                        ]),
                                         ],justify="center"),
                                         ]),
                 
@@ -154,26 +187,37 @@ def populate_truck_info(tf,contributions):
         ])
 
 @callback(
-        Output("commits_table","children"),
+        Output("commits_table","rowData"),
         Input("branch_cache","data")
 )
 def populate_commits_tab(data):
         if not data:
                 return no_update
-        data_to_show=list()
-        for d in data:
-                nd={
-                        "Commit hash":CommitDisplayerAIO(CommitInfo(
-                                d["commit_hash"],d["abbr_hash"],d["tree"],d["refs"],d["subject"],d["author_name"],d["author_email"],datetime.fromisoformat(d["date"]).date())).create_comp(),
-                        "Full hash":d["commit_hash"],
-                        "Author Name":d["author_name"],
-                        "Date":datetime.fromisoformat(d["date"]).strftime(r"%d-%m-%Y"),
-                }
-                data_to_show.append(nd)
-        return CustomTable(data_to_show,div_props={"fluid":True},filters={"Full hash":"equal","Author Name":"like"},sort={"Date":"date"}).create_comp()
+        df=pd.DataFrame(data)
+        df["date"]=pd.to_datetime(df["date"])
+        return df.to_dict("records")
 
 @callback(
-        Output("authors_table","children"),
+        Output("commit_modal_header","children"),
+        Output("commit_modal_message","children"),
+        Output("commit_modal_author","children"),
+        Output("commit_modal_hash","children"),
+        Output("commit_modal_date","children"),
+        Output("commit_modal","is_open"),
+        Input("commits_table","cellClicked"),
+        State("branch_cache","data"),
+        prevent_initial_call=True
+)
+def listen_commits_tab_click(cell,data):
+        if cell["colId"]!="commit_hash":
+                raise PreventUpdate()
+        df=pd.DataFrame(data)
+        hash=cell["value"]
+        commit:pd.Series=df.loc[df["commit_hash"]==hash].iloc[0]
+        return hash[:7],commit["subject"],f"{commit['author_name']} <{commit["author_email"]}>",hash,commit["date"],True
+        
+@callback(
+        Output("authors_table","rowData"),
         Input("contribution_cache","data"),
         Input("authors_cache","data")
 )
@@ -181,16 +225,15 @@ def populate_authors_tab(contributions,data,doa_th=0.75):
         if not contributions:
                 return no_update
         contr=pd.DataFrame(contributions)
-        data_to_show=list()
-        for d in data:
-                author,cont=Author(d["email"],d["name"],d["commits_authored"]),contr.loc[contr["author"]==d["name"]]["fname"].tolist()
-                nd={
-                        "Author":AuthorDisplayerAIO(author,cont).create_comp(),
-                        "Email":d["email"],
-                        "Files authored":len(cont)
-                }
-                data_to_show.append(nd)
-        return CustomTable(data_to_show,filters={"Email":"like"},sort={"Files authored":"none"},div_props={"fluid":True}).create_comp()
+        authors=pd.DataFrame(data)
+        contr=contr[contr.DOA >= doa_th]
+        contr=contr.groupby("author",as_index=False).count()
+        contr.rename(columns={"author":"name"},inplace=True)
+        authors=authors.join(contr.set_index("name"),rsuffix="contr",on="name",validate="m:1")
+        authors.rename(columns={"DOA":"files_authored"},inplace=True)
+        authors["commits_authored"]=authors["commits_authored"].map(lambda a: len(a))
+        authors.fillna(0,inplace=True)
+        return authors.to_dict("records")
 
 @callback(
         Output("graph","figure"),

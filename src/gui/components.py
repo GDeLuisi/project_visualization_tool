@@ -182,12 +182,13 @@ class CustomTable():
     @callback(
         Output(ids.store(MATCH,"filtered_indexes"),"data"),
         Input(ids.input(MATCH,"text",ALL), 'value'),
-        Input(ids.store(MATCH,"full_data"),"data"),
+        State(ids.store(MATCH,"full_data"),"data"),
         State(ids.store(MATCH,"filters"), 'data'),
         State(ids.input(MATCH,"text",ALL), 'id'),
         prevent_initial_call=True
     )
     def filter_data(text,orig_data,filters,in_id):
+        print(ctx.triggered_id)
         if not in_id[0] or not text:
             return no_update
         filtered_indexes=set()
