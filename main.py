@@ -5,4 +5,4 @@ from src.app.cli import main
 base_path=Path.cwd()
 test_project=base_path.parent.joinpath("pandas")
 if __name__ =="__main__":
-    main([base_path.as_posix()],env="DEV")
+    main([test_project.as_posix()],env="PROD")

@@ -51,7 +51,18 @@ column_defs_authors=[
 
 layout = dbc.Container([
         truck_facto_modal,
-        
+         dbc.Modal([
+                dbc.ModalHeader([html.I(className="bi bi-git h3 pe-3"),html.Span(f"Commit: ",className="fw-bold"),html.Span(id="commit_modal_header",className="fw-bold")]),
+                dbc.ModalBody([
+                    dbc.Container([
+                        html.P([html.Span("Commit Message: ",className="fw-bold"), html.Span(id="commit_modal_message")] ),
+                        html.P([html.Span("Commit Author: ",className="fw-bold"), html.Span(id="commit_modal_author")]),
+                        html.P([html.Span("Complete hash string: ",className="fw-bold"),html.Span(id="commit_modal_hash")]),
+                        html.P([html.Span("Created at: ",className="fw-bold") ,html.Span(id="commit_modal_date")]),
+                        
+                    ]),
+                ])
+            ],id="commit_modal",size="lg"),
         dbc.Row(id="repo_graph_row",children=[
                 dbc.Col(
                         [       
