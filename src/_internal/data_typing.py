@@ -118,7 +118,6 @@ class TreeStructure():
             dat_dict["id"].append(o.hash_string)
             dat_dict["child"].append(f"{path}/{o.name}" if path else o.name)
             dat_dict["type"].append("folder" if isinstance(o,Folder) else "file")
-
         return dat_dict
     
     def walk(self,files_only:bool=False,dirs_only:bool=False)->Generator[tuple[str,Union[Folder,File]],None,None]:
@@ -127,7 +126,7 @@ class TreeStructure():
         objects=self.base.content.values()
         folders_to_visit:list[tuple[str,Folder]]=[]
         
-        end=False
+        end=True
         path=""
         for o in objects:
             if isinstance(o,File):
@@ -137,6 +136,7 @@ class TreeStructure():
                 folders_to_visit.append((path,o))
                 if not files_only:
                     yield (path,o)
+                end=False
         while not end:
             path,fold=folders_to_visit.pop()
             path=f"{path}/{fold.name}" if path else fold.name

@@ -200,26 +200,22 @@ def populate_treemap(_,b,cache,name,email,doa,data):
         tree_dict:dict[str,str]=dict()
         contributions=pd.DataFrame(cache)
         author_doas:pd.DataFrame=contributions.loc[contributions["author"]==name]
-        tree = build_tree_structure(rp,b if b else "HEAD")
+        files=contributions["fname"].unique()
+        path_filter=set()
+        if not author_doas.empty:
+                files=author_doas.loc[author_doas["DOA"]>=doa]["fname"].unique()
+        path_filter=set(files)
+        tree = build_tree_structure(rp,b if b else "HEAD",path_filter)
         for p,o in tree.walk(files_only=True):
                 tree_dict[f"{p}/{o.name}"]=o.hash_string
         df=tree.get_treemap()
         df=pd.DataFrame(df)
-        if not author_doas.empty:
-                files=author_doas.loc[author_doas["DOA"]>=doa]["fname"].array
-                doas=set()
-                for f in files:
-                        ps=Path(f).parts
-                        for part in ps:
-                                doas.add(part)
-                df=df.loc[df["name"].isin(doas)].reset_index(drop=True)
         fig=px.treemap(data_frame=df,parents=df["parent"],names=df["name"],ids=df["child"],color_discrete_map={'(?)':'lightgrey', 'file':'paleturquoise', 'folder':'crimson'},color=df["type"],custom_data=["id","type"],maxdepth=3,height=800)
         fig.update_layout(
         uniformtext=dict(minsize=10),
         margin = dict(t=50, l=25, r=25, b=25)
         )
         set_props("dir_info_loader",{"display":"auto"})
-        # fig=px.treemap(parents = ["", "Eve", "Eve", "Seth", "Seth", "Eve", "Eve", "Awan", "Eve","Noam"],names = ["Eve","Cain", "Seth", "Enos/Noam", "Noam", "Abel", "Awan", "Enoch", "Azura","Aqua"],)
         return tree_dict,fig
 
 @callback(

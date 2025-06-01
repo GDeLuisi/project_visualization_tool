@@ -143,8 +143,6 @@ layout = dbc.Container([
                                                         ]),
                                         ],justify="center"),
                                         ]),
-                
-                
                 ]),
         # html.Div(id="test-div")
 ],fluid=True,className="p-10")
