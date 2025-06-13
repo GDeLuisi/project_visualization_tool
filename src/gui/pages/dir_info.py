@@ -5,15 +5,16 @@ from datetime import date
 import plotly.express as px
 import pandas as pd
 from pathlib import Path
-from repository_miner import RepoMiner
+from repository_miner import RepoMiner,GitCmdError
 from truck_factor_gdeluisi.main import infer_programming_language,resolve_programming_languages
 import dash_bootstrap_components as dbc
 from io import StringIO
-from src.app.helper import build_tree_structure
+from src.app.helper import build_tree_structure,retrieve_SATDs
 import json
 import time
 from typing import Union
 from src._internal import find_satd
+from src._internal.file_parser import DEFAULT_SATD_HIGHLIHGTER
 from logging import getLogger
 from src.gui import SATDDisplayerAIO
 from math import ceil
@@ -105,7 +106,7 @@ layout = dbc.Container([
         dcc.Store("authors_doas",data=dict()),
         dcc.Store("file_cache",data=dict()),
         dcc.Store("file_info_cache",data=dict()),
-        dcc.Store("satd_files_cache"),
+        dcc.Store("satd_files_cache",data=list()),
         dcc.Loading(id="dir_info_loader",display="show",fullscreen=True),
         dbc.Row([
                 dbc.Col(
@@ -138,36 +139,34 @@ def open_graph_filtering_collapse(_):
 
 @callback(
         Output("satd_files_cache","data"),
-        Output("satd_pagination","max_value"),
         Input("file_info_cache","data"),
         State("repo_path","data"),
 )
 def find_satd_files(cache:dict[str,str],path):
         rp=RepoMiner(path)
-        satd_list_dict=list()
-        suffixes=resolve_programming_languages(infer_programming_language(cache.keys()))
-        for p,o in cache.items():
-                # print(p)
-                if Path(p).suffix in suffixes:
-                        satds:dict[int,str]=find_satd(rp.get_source(o),Path(p).suffix)
-                        if len(satds)>0:
-                                satd_list_dict.append((p,satds))
-        return satd_list_dict,ceil(len(satd_list_dict)/items_per_page)
+        files=set()
+        highlighters=set(DEFAULT_SATD_HIGHLIHGTER)
+        satds=retrieve_SATDs(rp,highlighters)
+        return satds
 
 @callback(
+        Output("satd_pagination","max_value"),
         Output("satd_files","children"),
         Input("satd_pagination","active_page"),
-        Input("satd_files_cache","data")
+        Input("satd_files_cache","data"),
+        prevent_intial_call=True
 )
-def populate_satd_list(page,cache):
+def populate_satd_list(page,cache:dict):
+        # print("active")
         if not cache:
                 return no_update
         buttons:list[dbc.ListGroupItem]=list()
+        keys=sorted(list(cache.keys()),reverse=True)
         start_value=(page-1)*items_per_page
-        to_add=cache[start_value:start_value+items_per_page]
-        for p,satds in to_add:
-                buttons.append(dbc.ListGroupItem(SATDDisplayerAIO(p,satds,span_props=dict(className="fw-bold ",style={"cursor":"pointer"}),modal_props={"scrollable":True}).create_comp()))
-        return buttons
+        to_add=keys[start_value:start_value+items_per_page]
+        for key in to_add:
+                buttons.append(dbc.ListGroupItem(SATDDisplayerAIO(key,cache[key],span_props=dict(className="fw-bold ",style={"cursor":"pointer"}),modal_props={"scrollable":True}).create_comp()))
+        return ceil(len(cache)/items_per_page),buttons
 
 @callback(
         Output({"type":"setd_modal","index":MATCH},"is_open"),
@@ -207,7 +206,10 @@ def populate_treemap(_,b,cache,name,email,doa,data):
         path_filter=set(files)
         tree = build_tree_structure(rp,b if b else "HEAD",path_filter)
         for p,o in tree.walk(files_only=True):
-                tree_dict[f"{p}/{o.name}"]=o.hash_string
+                if not p:
+                        tree_dict[f"{o.name}"]=o.hash_string
+                else:
+                        tree_dict[f"{p}/{o.name}"]=o.hash_string
         df=tree.get_treemap()
         df=pd.DataFrame(df)
         fig=px.treemap(data_frame=df,parents=df["parent"],names=df["name"],ids=df["child"],color_discrete_map={'(?)':'lightgrey', 'file':'paleturquoise', 'folder':'crimson'},color=df["type"],custom_data=["id","type"],maxdepth=3,height=800)
@@ -235,7 +237,7 @@ def populate_file_info(data,_,contributions,children):
         top_3=file_df.sort_values(by="DOA",ascending=False).iloc[:3]
         if children==file:
                 return "invisible",[],no_update
-        div_children=[html.H4(f"Top {top_3["author"].size} module contributors")]
+        div_children=[html.H4(f"Top {top_3['author'].size} module contributors")]
         for i,contr in enumerate(top_3.itertuples(name="Contr"),1):
                 v=contr.DOA
                 name=contr.author

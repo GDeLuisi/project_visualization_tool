@@ -1,8 +1,16 @@
 from typing import Generator,Iterable
 from src._internal import TreeStructure,File,Folder
 from repository_miner import RepoMiner
-from repository_miner.data_typing import Blob,Tree
+from repository_miner.data_typing import Blob,Tree,CommitInfo
 from pathlib import Path
+import pandas as pd
+import truck_factor_gdeluisi.main as tf_calculator
+from src.utility.helper import get_dataframe
+from os import cpu_count
+from math import ceil
+from concurrent.futures import ThreadPoolExecutor,ProcessPoolExecutor
+from functools import partial
+max_worker = min(32,cpu_count())
 
 def build_tree_structure(miner:RepoMiner,commit_sha:str,path_filter:Iterable=set())->TreeStructure:
     t=miner.tree(commit_sha)
@@ -17,3 +25,40 @@ def build_tree_structure(miner:RepoMiner,commit_sha:str,path_filter:Iterable=set
             obj=Folder(name=Path(o.path).name,content=dict(),hash_string=o.hash)
         tree.build(path=o.path,new_obj=obj)
     return tree
+
+def retrieve_SATDs(miner:RepoMiner,satd_highlighters:Iterable[str])->dict[str,dict[int,str]]:
+    reg=f'\"\\W+\\s*({"|".join(satd_highlighters)}).+\"'
+    lines=miner.git.grep(["-E","-n","-o","-I",reg])
+    satds:dict[str,dict[int,str]]=dict()
+    for line in lines.split('\n'):
+        try:
+            path,n,satd=line.split(":",2)
+            satd=satd.strip()
+            res=satds.get(path,{})
+            res[n]=satd
+            satds[path]=res
+        except ValueError:
+            print(line)
+    return satds
+
+def retrieve_contribution_data(repo_path:str)->tuple[pd.DataFrame,int]:
+    contributions=tf_calculator.compute_DOA(tf_calculator.create_contribution_dataframe(repo_path,only_of_files=False))
+    tf_contributions=tf_calculator.filter_files_of_interest(contributions)
+    tr_fa=tf_calculator.compute_truck_factor_from_contributions(tf_contributions)
+    return (contributions,tr_fa)
+
+def parallel_commit_retrievial(rp:RepoMiner)->list[CommitInfo]:
+    no_commits=rp.n_commits()
+    c_slice=ceil(no_commits/max_worker)
+    return_commits=[]
+    tasks=[]
+    args=[]
+    for i in range(max_worker):
+        args.append(dict(max_count=c_slice,skip=i*c_slice))
+        # c_slice,i*c_slice
+    with ProcessPoolExecutor(max_workers=max_worker) as executor:
+        for i in range(max_worker):
+            tasks.append(executor.submit(rp.retrieve_commit_list,max_count=c_slice,skip=i*c_slice,merges=True))
+    for c_list in tasks:
+        return_commits.extend(c_list.result())
+    return return_commits

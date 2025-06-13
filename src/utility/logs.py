@@ -4,7 +4,7 @@ import json
 import logging
 import logging.config
 import atexit
-from logging.config import ConvertingList, ConvertingDict, valid_ident
+from logging.config import ConvertingList, valid_ident
 from logging.handlers import QueueHandler, QueueListener
 from queue import Queue
 from atexit import register

@@ -149,16 +149,13 @@ layout = dbc.Container([
 
 @callback(
         Output("general_info","children"),
-        Input("branch_cache","data"),
         Input("authors_cache","data"),
         State("branch_picker","value"),
         State("repo_path","data"),
 )
-def populate_generale_info(cache,authors,branch,path,):
-        if not cache:
-                return no_update
+def populate_generale_info(authors,branch,path,):
         rp=RepoMiner(path)
-        num_commits=len(cache)
+        num_commits=rp.n_commits()
         current_head=rp.git.rev_parse(["--abbrev-ref","HEAD"]) if not branch else branch
         num_authors=len(authors)
         current_commit=rp.get_commit(branch if branch else current_head)
@@ -223,7 +220,7 @@ def listen_commits_tab_click(cell,data):
         df=pd.DataFrame(data)
         hash=cell["value"]
         commit:pd.Series=df.loc[df["commit_hash"]==hash].iloc[0]
-        return hash[:7],commit["subject"],f"{commit['author_name']} <{commit["author_email"]}>",hash,commit["date"],True
+        return hash[:7],commit["subject"],f"{commit['author_name']} <{commit['author_email']}>",hash,commit["date"],True
         
 @callback(
         Output("authors_table","rowData"),
@@ -280,10 +277,11 @@ def update_pie_graph(data):
 
 @callback(
         Output("contribution_info","children"),
-        Input("contribution_cache","data"),
-        State("authors_cache","data")
+        Input("authors_cache","data"),
+        State("contribution_cache","data"),
+        prevent_inital_call=True
 )
-def populate_contributors(contributions,authors,th=0.75):
+def populate_contributors(authors,contributions,th=0.75):
         if not contributions:
                 return no_update
         contrs=pd.DataFrame(contributions)
@@ -298,8 +296,12 @@ def populate_contributors(contributions,authors,th=0.75):
         list_items=[]
         for author in top_3.itertuples("Author"):
                 name=author.author
-                at=auth_df.loc[(auth_df["name"]==name)].head(1)
-                nd=AuthorDisplayerAIO(Author(at["email"],at["name"].values[0],at["commits_authored"].values[0]),contrs.loc[contrs["author"]==name]["fname"].tolist()).create_comp()
+                at=auth_df.loc[(auth_df["name"]==name)]
+                tmp_author=dict(name=name,email="",commits_authored=[])
+                for a in at.itertuples("At"):
+                        tmp_author["email"]=f'{a.email}, {tmp_author["email"]}'.strip()
+                        tmp_author["commits_authored"].extend(a.commits_authored)
+                nd=AuthorDisplayerAIO(Author(tmp_author["email"],tmp_author["name"],tmp_author["commits_authored"]),contrs.loc[contrs["author"]==name]["fname"].tolist()).create_comp()
                 cont_div=dbc.ListGroupItem([
                         nd
                 ],className="py-1")

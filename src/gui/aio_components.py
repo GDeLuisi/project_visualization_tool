@@ -4,6 +4,7 @@ import dash_bootstrap_components as dbc
 from repository_miner.data_typing import Author,CommitInfo
 from typing import Iterable
 from math import ceil
+from src._internal.file_parser import DEFAULT_SATD_HIGHLIHGTER
 import re
 class AuthorDisplayerAIO(): 
     class ids:
@@ -184,8 +185,11 @@ class SATDDisplayerAIO():
         rows=list()
         i=0
         for n,c in satds.items():
-            t,content=c.split(" ",1)
-            t=re.match(r'[a-zA-Z]+',t).group()
+            c=c.strip()
+            t,content="",""
+            pattern=re.compile('|'.join(DEFAULT_SATD_HIGHLIHGTER))
+            t=re.search(pattern,c).group()
+            _,content=re.split(pattern,c,1)
             rows.append(html.Tr([html.Td(str(n),id=self.satd_ids.table_data(aio_id+f"_table_{str(i)}_line"),style={"cursor":"pointer"},className="fw-bold text-info"),
                                 html.Td(t,id=self.satd_ids.table_data(aio_id+f"_table_{str(i)}_type")),
                                 dbc.Modal([

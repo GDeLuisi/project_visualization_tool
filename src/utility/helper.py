@@ -6,9 +6,6 @@ import pandas as pd
 import unicodedata
 logger=getLogger("helper")
 
-def remove_control_characters(s):
-    return "".join(ch for ch in s if unicodedata.category(ch)[0]!="C")
-
 def infer_programming_language(files:Iterable[str],threshold:float=0.35)->list[str]:
         suffix_count:dict[str,int]=dict()
         fs=set(files)
@@ -34,21 +31,4 @@ def get_dataframe(object : object)->pd.DataFrame:
         var_dict[k]=[v]
     df=pd.DataFrame(var_dict)
     return df  
-
-def serialize_object(object: object,encoder:Type=json.JSONEncoder)->str:
-    var_dict=object.__dict__.copy()
-    return json.dumps(var_dict,skipkeys=True,cls=encoder)
-
-class Singleton(type):
-    loaders_registry=dict()
-    def __call__(cls, *args, **kwargs):
-        if cls not in cls.loaders_registry:
-            # print(f"{cls} not found")
-            instance = super().__call__(*args, **kwargs)
-            cls.loaders_registry[cls] = instance
-        return cls.loaders_registry[cls]
-    def __exist__(instance)->bool:
-        return instance in Singleton.loaders_registry
-    def __delete__(instance):
-        Singleton.loaders_registry.pop(instance)
 
