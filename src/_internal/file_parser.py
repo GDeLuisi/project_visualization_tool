@@ -27,7 +27,7 @@ def fetch_source_files(project_path:Union[Path|str],extensions:set[str],exclude_
                 yield i
         elif item.suffix in extensions:
             yield item
-#TODO could be optimized using multiprocessing
+# TODO could be optimized using multiprocessing
 def _comment_finder(text:Union[str,list[str]],single_line_pattern:list[str],multi_line_pattern:list[str])->list[tuple[int,int,str]]:
     content=[]
     txt=""
@@ -117,9 +117,9 @@ def find_comments_with_locations(text:Union[str|list[str]],ext:str)->list[tuple[
 
 def _find_satd_inline(text:str,tags):
     for tag in tags:
-        mt:re.Match = re.match(f"^#({tag}.*)",text)
+        mt:re.Match = re.match(f"^\\W+\\s*({tag}.*)",text)
         if mt and isinstance(mt,re.Match):
-            return mt.group()[1:]
+            return mt.group(1)
 def _find_satd(comments:list[tuple[int,int,str]],tags:list[str])->dict[int,str]:
     satds:dict[int,str]=dict()
     for start,end,comment in comments:

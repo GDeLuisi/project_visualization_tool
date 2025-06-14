@@ -1,18 +1,20 @@
 import dash
 from dash import dcc,callback,Input,Output,no_update,set_props,State,clientside_callback,Patch,ctx,ALL,MATCH
-from src._internal import RepoMiner,make_commit_dataframe,prune_common_commits,getMaxMinMarks,unixTimeMillis,unixToDatetime
 import dash.html as html
 from datetime import date
 import plotly.express as px
 import pandas as pd
 from pathlib import Path
-from src._internal.data_typing import Author,CommitInfo,TreeStructure,File,Folder
+from repository_miner import RepoMiner,GitCmdError
+from truck_factor_gdeluisi.main import infer_programming_language,resolve_programming_languages
 import dash_bootstrap_components as dbc
 from io import StringIO
+from src.app.helper import build_tree_structure,retrieve_SATDs
 import json
 import time
 from typing import Union
 from src._internal import find_satd
+from src._internal.file_parser import DEFAULT_SATD_HIGHLIHGTER
 from logging import getLogger
 from src.gui import SATDDisplayerAIO
 from math import ceil
@@ -104,7 +106,7 @@ layout = dbc.Container([
         dcc.Store("authors_doas",data=dict()),
         dcc.Store("file_cache",data=dict()),
         dcc.Store("file_info_cache",data=dict()),
-        dcc.Store("satd_files_cache"),
+        dcc.Store("satd_files_cache",data=list()),
         dcc.Loading(id="dir_info_loader",display="show",fullscreen=True),
         dbc.Row([
                 dbc.Col(
@@ -137,34 +139,34 @@ def open_graph_filtering_collapse(_):
 
 @callback(
         Output("satd_files_cache","data"),
-        Output("satd_pagination","max_value"),
         Input("file_info_cache","data"),
         State("repo_path","data"),
 )
 def find_satd_files(cache:dict[str,str],path):
         rp=RepoMiner(path)
-        satd_list_dict=list()
-        for p,o in cache.items():
-                # print(p)
-                satds:dict[int,str]=find_satd(rp.get_source(o),Path(p).suffix)
-                if len(satds)>0:
-                        satd_list_dict.append((p,satds))
-        return satd_list_dict,ceil(len(satd_list_dict)/items_per_page)
+        files=set()
+        highlighters=set(DEFAULT_SATD_HIGHLIHGTER)
+        satds=retrieve_SATDs(rp,highlighters)
+        return satds
 
 @callback(
+        Output("satd_pagination","max_value"),
         Output("satd_files","children"),
         Input("satd_pagination","active_page"),
-        Input("satd_files_cache","data")
+        Input("satd_files_cache","data"),
+        prevent_intial_call=True
 )
-def populate_satd_list(page,cache):
+def populate_satd_list(page,cache:dict):
+        # print("active")
         if not cache:
                 return no_update
         buttons:list[dbc.ListGroupItem]=list()
+        keys=sorted(list(cache.keys()),reverse=True)
         start_value=(page-1)*items_per_page
-        to_add=cache[start_value:start_value+items_per_page]
-        for p,satds in to_add:
-                buttons.append(dbc.ListGroupItem(SATDDisplayerAIO(p,satds,span_props=dict(className="fw-bold ",style={"cursor":"pointer"}),modal_props={"scrollable":True}).create_comp()))
-        return buttons
+        to_add=keys[start_value:start_value+items_per_page]
+        for key in to_add:
+                buttons.append(dbc.ListGroupItem(SATDDisplayerAIO(key,cache[key],span_props=dict(className="fw-bold ",style={"cursor":"pointer"}),modal_props={"scrollable":True}).create_comp()))
+        return ceil(len(cache)/items_per_page),buttons
 
 @callback(
         Output({"type":"setd_modal","index":MATCH},"is_open"),
@@ -182,87 +184,69 @@ def load_modal(_):
         Output("dir_treemap","figure"),
         Input("calculate_doa","n_clicks"),
         Input("branch_picker","value"),
+        Input("contribution_cache","data"),
         State("author_picker","value"),
         State("author_picker_email","value"),
         State("doa_picker","value"),
         State("repo_path","data"),
-        State("contribution_cache","data"),
 )
-def populate_treemap(_,b,name,email,doa,data,cache):
+def populate_treemap(_,b,cache,name,email,doa,data):
         # df=pd.DataFrame(cache)
+        if not cache:
+                return no_update,no_update
         rp=RepoMiner(data)
         author_doas=None
         tree_dict:dict[str,str]=dict()
-        if name and email:
-                author=f"{name}|{email}"
-                author_doas=cache[author]
-        tree = rp.get_dir_structure(b)
+        contributions=pd.DataFrame(cache)
+        author_doas:pd.DataFrame=contributions.loc[contributions["author"]==name]
+        files=contributions["fname"].unique()
+        path_filter=set()
+        if not author_doas.empty:
+                files=author_doas.loc[author_doas["DOA"]>=doa]["fname"].unique()
+        path_filter=set(files)
+        tree = build_tree_structure(rp,b if b else "HEAD",path_filter)
         for p,o in tree.walk(files_only=True):
-                tree_dict[f"{p}/{o.name}"]=o.hash_string
-        # print(tree_dict)
+                if not p:
+                        tree_dict[f"{o.name}"]=o.hash_string
+                else:
+                        tree_dict[f"{p}/{o.name}"]=o.hash_string
         df=tree.get_treemap()
-        # print(df)
         df=pd.DataFrame(df)
-        
-        if author_doas:
-                # print(author_doas)
-                files=[k for k,v in author_doas.items() if v>=doa]
-                doas=set()
-                for f in files:
-                        ps=Path(f).parts
-                        for part in ps:
-                                doas.add(part)
-                # print(doas)
-                df=df.loc[df["name"].isin(doas)].reset_index(drop=True)
-                # print(df.head())
         fig=px.treemap(data_frame=df,parents=df["parent"],names=df["name"],ids=df["child"],color_discrete_map={'(?)':'lightgrey', 'file':'paleturquoise', 'folder':'crimson'},color=df["type"],custom_data=["id","type"],maxdepth=3,height=800)
         fig.update_layout(
         uniformtext=dict(minsize=10),
         margin = dict(t=50, l=25, r=25, b=25)
         )
         set_props("dir_info_loader",{"display":"auto"})
-        # fig=px.treemap(parents = ["", "Eve", "Eve", "Seth", "Seth", "Eve", "Eve", "Awan", "Eve","Noam"],names = ["Eve","Cain", "Seth", "Enos/Noam", "Noam", "Abel", "Awan", "Enoch", "Azura","Aqua"],)
         return tree_dict,fig
 
 @callback(
         Output("card-file-info","className"),
         Output("file-info","children"),
-        Output("file_cache","data"),
         Output("file-info-header","children"),
         Input("dir_treemap","clickData"),
         Input("branch_picker","value"),
-        State("repo_path","data"),
-        State("file_cache","data"),
+        State("contribution_cache","data"),
         State("file-info-header","children"),
+        prevent_initial_call=True
 )
-def populate_file_info(data,_,path,cache,children):
-        if not data:
-                return no_update,no_update,no_update,no_update
+def populate_file_info(data,_,contributions,children):
+        df=pd.DataFrame(contributions)
         file=data["points"][0]["id"]
-        # print(data)
+        file_df:pd.DataFrame=df.loc[df["fname"]==file]
+        top_3=file_df.sort_values(by="DOA",ascending=False).iloc[:3]
         if children==file:
-                return "invisible",[],no_update,""
-        if file in cache:
-                doas=cache[file]
-        else:
-                rp=RepoMiner(path)
-                doas=rp.calculate_DOA(file)
-                nd:dict[str,float]=dict()
-                for k,v in doas.items():
-                        nd[f"{k.name}|{k.email}"]=v
-                cache[file]=nd
-                doas=nd
-        ordered_doas=sorted(((k,round(v,2)) for k,v in doas.items()),reverse=True,key=lambda item:item[1])[:3]
-        
-        div_children=[html.H4(f"Top 3 module contributors")]
-        for i,(k,v) in enumerate(ordered_doas,1):
-                name,email=k.split('|')
+                return "invisible",[],no_update
+        div_children=[html.H4(f"Top {top_3['author'].size} module contributors")]
+        for i,contr in enumerate(top_3.itertuples(name="Contr"),1):
+                v=contr.DOA
+                name=contr.author
                 div_children.append(html.P(
-                        f"{i}° {name} <{email}> with normalized DOA {v}"
+                        f"{i}° {name} with normalized DOA {round(v,2)}"
                 ))
         div = html.Div(children=div_children)
 
-        return "visible",div,cache,file
+        return "visible",div,file
 
 @callback(
         Output("author_picker","value"),

@@ -4,8 +4,9 @@ from time import strptime
 from .exceptions import ObjectNotInTreeError,PathNotAvailableError
 from typing import Literal,get_args,Iterable,Optional,Union,Generator,Callable
 import json
+from repository_miner.data_typing import CommitInfoImpl
+from src.utility.helper import get_dataframe
 import pandas as pd
-from src.utility import DataFrameAdapter,JSONSerializebleAdapter
 from pathlib import Path
 # ACCEPTED_EXTENSIONS=Literal[".js",".py",".sh",".sql",".c",".cpp",".php",".html",".java",".rb"]
 ACCEPTED_EXTENSIONS=Literal[".js",".py",".sh",".sql",".c",".cpp",".php",".html",".java",".rb"]
@@ -40,7 +41,7 @@ class SATD():
     file: str
     
 @dataclass
-class Author(DataFrameAdapter,JSONSerializebleAdapter):
+class Author():
     email:str
     name:str
     commits_authored:list[str]=field(default_factory=lambda: [])
@@ -54,27 +55,9 @@ class Author(DataFrameAdapter,JSONSerializebleAdapter):
         return f"Name: {self.name} , Email: {self.email}"
     def __repr__(self):
         return  f"Name: {self.name} , Email: {self.email} , Commits: {self.commits_authored}"
+
 @dataclass
-class CommitInfo(DataFrameAdapter):
-    commit_hash:str
-    abbr_hash:str
-    tree:str
-    parent:str
-    refs:str
-    subject:str
-    author_name:str
-    author_email:str
-    date:date
-    files:list[str]
-    
-@dataclass
-class Branch(DataFrameAdapter):
-    name:str
-    commits:list[str]
-    def __hash__(self):
-        return hash(self.name)
-@dataclass
-class File(DataFrameAdapter):
+class File():
     name:str
     size:int
     hash_string:str
@@ -89,7 +72,7 @@ class File(DataFrameAdapter):
     
 
 @dataclass
-class Folder(DataFrameAdapter):
+class Folder():
     name:str
     content:dict[str,Union[File,'Folder']]
     hash_string:str
@@ -113,10 +96,10 @@ class Folder(DataFrameAdapter):
         size=self.get_size()
         df=pd.DataFrame(dict(size=[size],name=[self.name],hash_string=[self.hash_string]))
         for v in self.content.values():
-            df=pd.concat([df,v.get_dataframe()],ignore_index=True).reset_index(drop=True)
+            df=pd.concat([df,get_dataframe(v)],ignore_index=True).reset_index(drop=True)
         return df
 
-class TreeStructure(DataFrameAdapter):
+class TreeStructure():
     def __init__(self,hash:str,content:Optional[Iterable[Union[Folder,File]]]=None):
         self.base:Folder=Folder(name="",content=dict(),hash_string=hash)
         self.hash=hash
@@ -135,7 +118,6 @@ class TreeStructure(DataFrameAdapter):
             dat_dict["id"].append(o.hash_string)
             dat_dict["child"].append(f"{path}/{o.name}" if path else o.name)
             dat_dict["type"].append("folder" if isinstance(o,Folder) else "file")
-
         return dat_dict
     
     def walk(self,files_only:bool=False,dirs_only:bool=False)->Generator[tuple[str,Union[Folder,File]],None,None]:
@@ -144,7 +126,7 @@ class TreeStructure(DataFrameAdapter):
         objects=self.base.content.values()
         folders_to_visit:list[tuple[str,Folder]]=[]
         
-        end=False
+        end=True
         path=""
         for o in objects:
             if isinstance(o,File):
@@ -154,6 +136,7 @@ class TreeStructure(DataFrameAdapter):
                 folders_to_visit.append((path,o))
                 if not files_only:
                     yield (path,o)
+                end=False
         while not end:
             path,fold=folders_to_visit.pop()
             path=f"{path}/{fold.name}" if path else fold.name
