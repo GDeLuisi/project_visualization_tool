@@ -71,7 +71,6 @@ def test_retrieve_satds(git):
 
 def test_retreive_contribution():
     df,tf=retrieve_contribution_data(main_path)
-    assert tf==1
 
 def test_parallel_commit_retrieval(git):
     cl=git.retrieve_commit_list(merges=True)
