@@ -1,6 +1,6 @@
 from typing import Generator,Iterable
 from src._internal import TreeStructure,File,Folder
-from repository_miner import RepoMiner
+from repository_miner import RepoMiner,GitCmdError
 from repository_miner.data_typing import Blob,Tree,CommitInfo
 from pathlib import Path
 import pandas as pd
@@ -27,8 +27,12 @@ def build_tree_structure(miner:RepoMiner,commit_sha:str,path_filter:Iterable=set
     return tree
 
 def retrieve_SATDs(miner:RepoMiner,satd_highlighters:Iterable[str])->dict[str,dict[int,str]]:
-    reg=f'\"\\W+\\s*({"|".join(satd_highlighters)}).+\"'
-    lines=miner.git.grep(["-E","-n","-o","-I",reg])
+    reg=f'\"[^a-zA-Z0-9_]+\\s*({"|".join(satd_highlighters)}).+\"'
+    lines=[]
+    try:
+        lines=miner.git.grep(["-E","-n","-o","-I",reg])
+    except GitCmdError:
+        return dict()
     satds:dict[str,dict[int,str]]=dict()
     for line in lines.split('\n'):
         try:
@@ -52,13 +56,11 @@ def parallel_commit_retrievial(rp:RepoMiner)->list[CommitInfo]:
     c_slice=ceil(no_commits/max_worker)
     return_commits=[]
     tasks=[]
-    args=[]
-    for i in range(max_worker):
-        args.append(dict(max_count=c_slice,skip=i*c_slice))
-        # c_slice,i*c_slice
     with ProcessPoolExecutor(max_workers=max_worker) as executor:
         for i in range(max_worker):
             tasks.append(executor.submit(rp.retrieve_commit_list,max_count=c_slice,skip=i*c_slice,merges=True))
     for c_list in tasks:
-        return_commits.extend(c_list.result())
+        res=c_list.result()
+        if res:
+            return_commits.extend(res)
     return return_commits
