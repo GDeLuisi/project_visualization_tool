@@ -71,7 +71,7 @@ def test_retrieve_satds(git):
     assert set(files) == set(satds.keys())
 
 def test_retreive_contribution():
-    df,tf=retrieve_contribution_data(test_project)
+    df,tf=retrieve_contribution_data(main_path)
     print(tf)
 
 def test_parallel_commit_retrieval(git):
