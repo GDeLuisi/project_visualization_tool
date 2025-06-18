@@ -84,9 +84,8 @@ def listen_data(_,data):
         rp=RepoMiner(data)
         set_props("branch_picker",{"options":list(( b.name for b in rp.local_branches()))})
         commits=parallel_commit_retrievial(rp)
-        cl_df=pd.concat(map(lambda c:get_dataframe(c),commits))
-        commit_df=pd.concat([cl_df])
-        commit_df.reset_index(inplace=True,drop=True)
+        commit_df=pd.DataFrame(map(lambda c:c.__dict__,commits))
+        # commit_df.reset_index(inplace=True,drop=True)
         commit_df["date"]=pd.to_datetime(commit_df["date"])
         commit_df["dow"]=commit_df["date"].dt.day_name()
         commit_df["dow_n"]=commit_df["date"].dt.day_of_week

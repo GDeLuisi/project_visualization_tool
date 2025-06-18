@@ -56,7 +56,7 @@ def parallel_commit_retrievial(rp:RepoMiner)->list[CommitInfo]:
     c_slice=ceil(no_commits/max_worker)
     return_commits=[]
     tasks=[]
-    with ProcessPoolExecutor(max_workers=max_worker) as executor:
+    with ThreadPoolExecutor(max_workers=max_worker) as executor:
         for i in range(max_worker):
             tasks.append(executor.submit(rp.retrieve_commit_list,max_count=c_slice,skip=i*c_slice,merges=True))
     for c_list in tasks:

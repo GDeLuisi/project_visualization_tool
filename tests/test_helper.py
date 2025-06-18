@@ -6,10 +6,11 @@ from src.app.helper import *
 from src._internal.file_parser import DEFAULT_SATD_HIGHLIHGTER
 from repository_miner import RepoMiner
 from pathlib import Path
-main_path=Path.cwd().as_posix()
+main_path=Path.cwd()
+test_project=main_path.parent.joinpath("pandas")
 @fixture
 def git():
-    return RepoMiner(main_path)
+    return RepoMiner(main_path.as_posix())
 
 @dataclass
 class SerializableTestDataClass():
@@ -70,7 +71,8 @@ def test_retrieve_satds(git):
     assert set(files) == set(satds.keys())
 
 def test_retreive_contribution():
-    df,tf=retrieve_contribution_data(main_path)
+    df,tf=retrieve_contribution_data(test_project)
+    print(tf)
 
 def test_parallel_commit_retrieval(git):
     cl=git.retrieve_commit_list(merges=True)
