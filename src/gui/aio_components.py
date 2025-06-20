@@ -1,11 +1,10 @@
-from dash import Dash, Output, Input, State, html, dcc, callback, MATCH,clientside_callback,dash_table,ALL
+from dash import Output, Input, State, html, dcc, callback, MATCH,clientside_callback,ALL
 import uuid
 import dash_bootstrap_components as dbc
-from src._internal import Author,CommitInfo
+from repository_miner.data_typing import Author,CommitInfo
 from typing import Iterable
 from math import ceil
-import json
-import pandas as pd
+from src._internal.file_parser import DEFAULT_SATD_HIGHLIHGTER
 import re
 class AuthorDisplayerAIO(): 
     class ids:
@@ -186,8 +185,11 @@ class SATDDisplayerAIO():
         rows=list()
         i=0
         for n,c in satds.items():
-            t,content=c.split(" ",1)
-            t=re.match(r'[a-zA-Z]+',t).group()
+            c=c.strip()
+            t,content="",""
+            pattern=re.compile('|'.join(DEFAULT_SATD_HIGHLIHGTER))
+            t=re.search(pattern,c).group()
+            _,content=re.split(pattern,c,1)
             rows.append(html.Tr([html.Td(str(n),id=self.satd_ids.table_data(aio_id+f"_table_{str(i)}_line"),style={"cursor":"pointer"},className="fw-bold text-info"),
                                 html.Td(t,id=self.satd_ids.table_data(aio_id+f"_table_{str(i)}_type")),
                                 dbc.Modal([
@@ -251,7 +253,7 @@ class SATDDisplayerAIO():
         prevent_initial_call=True
     )
 
-class CommitDisplayerAIO(): 
+class CommitDisplayerAIO():
     class ids:
         modal = lambda aio_id: {
             'component': 'CommitDisplayerAIO',
@@ -313,11 +315,7 @@ class CommitDisplayerAIO():
                         html.P([html.Span("Commit Author: ",className="fw-bold"), f"{commit.author_name} <{commit.author_email}>"]),
                         html.P([html.Span("Complete hash string: ",className="fw-bold"),commit.commit_hash]),
                         html.P([html.Span("Created at: ",className="fw-bold") ,commit.date.strftime(r"%d-%m-%Y")]),
-                        html.P([html.Span("Parent hash: ",className="fw-bold"),html.Span(commit.parent,id=self.ids.content(aio_id,"parent")),dcc.Clipboard(
-                        target_id=self.ids.content(aio_id,"parent"),
-                        title="copy",
-                        className="d-inline clickable"
-                        ),],)
+                        
                     ]),
                 ])
             ],id=self.ids.modal(aio_id),size="lg",**m_props),
