@@ -67,7 +67,12 @@ layout = dbc.Container([
                 dbc.Col(
                         [       
                                 dcc.Loading([
-                                        dbc.Container(id="general_info"),
+                                        dbc.Card([
+                                                dbc.CardHeader(children=[html.I(className="bi bi-git pe-3 d-inline h2"),html.Span("Project overview",className="fw-bold h2"),html.Br(),
+                                                                        ]),
+                                                dbc.CardBody(id="general_info"),
+                                        ])
+                                        
                                 ])
                                 
                         ]
@@ -76,20 +81,26 @@ layout = dbc.Container([
                 dbc.Col(
                         [
                                 dcc.Loading([
-                                        dbc.Container(id="truck_info"),
+                                        dbc.Card([
+                                                dbc.CardHeader(children=[
+                                                                        html.I(className="bi bi-truck pe-3 d-inline h2"),html.Span("Truck factor",className="fw-bold h2"),
+                                                                ]),
+                                                dbc.CardBody(id="truck_info"),
+                                        ])
                                 ])
                         ]
                 ,width=4,align="start"
                 ),
                 dbc.Col(
                         [
-                                
-                        dbc.Container(id="contribution_info"),
-                                
+                                dbc.Card([
+                                                dbc.CardHeader(id="contribution_info_header"),
+                                                dbc.CardBody(id="contribution_info"),
+                                        ])                                
                         ]
                 ,width=4,align="start"
                 ),
-                ]),
+                ],class_name="pb-4"),
         dbc.Tabs([
                 dbc.Tab(
                         [
@@ -168,7 +179,6 @@ def populate_generale_info(authors,branch,path,):
                 ]
         ,class_name=" py-3",flush=True)
         return html.Div([
-                html.I(className="bi bi-git pe-3 d-inline h2"),html.Span("General overview",className="fw-bold h2"),html.Br(),
                 div
         ])
 
@@ -188,7 +198,6 @@ def populate_truck_info(tf,contributions):
                 ]
         ,class_name=" py-3",flush=True)
         return html.Div([
-                html.I(className="bi bi-truck pe-3 d-inline h2"),html.Span("Truck factor",className="fw-bold h2"),
                 div
         ])
 
@@ -276,6 +285,7 @@ def update_pie_graph(data):
         return fig
 
 @callback(
+        Output("contribution_info_header","children"),
         Output("contribution_info","children"),
         Input("authors_cache","data"),
         State("contribution_cache","data"),
@@ -289,9 +299,7 @@ def populate_contributors(authors,contributions,th=0.75):
         contrs=contrs.loc[contrs["DOA"]>=th]
         top_3=contrs.groupby("author").count().reset_index(drop=False)
         top_3=top_3.sort_values("DOA",ascending=False).head(3)
-        contributors=[html.I(className="bi bi-trophy-fill d-inline h3 pe-3"),
-                html.H4(f"Your project's top {top_3['DOA'].size} contributors:",className="d-inline fw-bold")
-        ]
+
         i=1
         list_items=[]
         for author in top_3.itertuples("Author"):
@@ -312,6 +320,7 @@ def populate_contributors(authors,contributions,th=0.75):
         numbered=True,
         class_name=" py-3",flush=True
         )
-        div = html.Div([*contributors,list_group])
+        div = html.Div(list_group)
         
-        return div
+        return [html.I(className="bi bi-trophy-fill d-inline h3 pe-3"),
+                html.H4(f"Your project's top {top_3['DOA'].size} contributors:",className="d-inline fw-bold")],div

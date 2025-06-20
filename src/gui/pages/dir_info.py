@@ -13,7 +13,6 @@ from src.app.helper import build_tree_structure,retrieve_SATDs
 import json
 import time
 from typing import Union
-from src._internal import find_satd
 from src._internal.file_parser import DEFAULT_SATD_HIGHLIHGTER
 from logging import getLogger
 from src.gui import SATDDisplayerAIO
@@ -63,12 +62,6 @@ stack=dbc.Stack(id="stack_info",className="p-2 h-75",children=[
                                 ],className="py-2"),
                         dbc.Row([
                                 dbc.Col(
-                                                children=[html.Div([dbc.Label(["Author Email Picker"]),dcc.Dropdown(id="author_picker_email",searchable=True,disabled=True,clearable=True,placeholder="Author email")]),],
-                                                width=12)
-                                        
-                                ],className="py-2"),
-                        dbc.Row([
-                                dbc.Col(
                                         children=[html.Div([dbc.Label(["Degree of Authorship(DOA) threshold picker"]),dcc.Slider(id="doa_picker",min=0,max=1,included=True,step=0.05,value=0.75,marks={"0":"0","1":"1","0.75":"0.75","0.5":"0.5","0.25":"0.25",},tooltip={"placement":"bottom","always_visible":True})]),],
                                         width=12),
                                 ],className="py-2"),
@@ -109,6 +102,7 @@ layout = dbc.Container([
         dcc.Store("satd_files_cache",data=list()),
         dcc.Loading(id="dir_info_loader",display="show",fullscreen=True),
         dbc.Row([
+                html.H1("Directory Tree Analysis",className="fw-bold h2 px-4"),
                 dbc.Col(
                         [
                         dcc.Loading(id="dir_treemap_loader",
@@ -137,36 +131,30 @@ def open_graph_filtering_collapse(_):
                 return True
         return False
 
-@callback(
-        Output("satd_files_cache","data"),
-        Input("file_info_cache","data"),
-        State("repo_path","data"),
-)
-def find_satd_files(cache:dict[str,str],path):
-        rp=RepoMiner(path)
-        files=set()
-        highlighters=set(DEFAULT_SATD_HIGHLIHGTER)
-        satds=retrieve_SATDs(rp,highlighters)
-        return satds
 
 @callback(
         Output("satd_pagination","max_value"),
         Output("satd_files","children"),
+        Output("satd_files_cache","data"),
         Input("satd_pagination","active_page"),
         Input("satd_files_cache","data"),
+        State("repo_path","data"),
         prevent_intial_call=True
 )
-def populate_satd_list(page,cache:dict):
+def populate_satd_list(page,cache:dict,path):
         # print("active")
         if not cache:
-                return no_update
+                rp=RepoMiner(path)
+                highlighters=set(DEFAULT_SATD_HIGHLIHGTER)
+                satds=retrieve_SATDs(rp,highlighters)
+                cache=satds
         buttons:list[dbc.ListGroupItem]=list()
         keys=sorted(list(cache.keys()),reverse=True)
         start_value=(page-1)*items_per_page
         to_add=keys[start_value:start_value+items_per_page]
         for key in to_add:
                 buttons.append(dbc.ListGroupItem(SATDDisplayerAIO(key,cache[key],span_props=dict(className="fw-bold ",style={"cursor":"pointer"}),modal_props={"scrollable":True}).create_comp()))
-        return ceil(len(cache)/items_per_page),buttons
+        return ceil(len(cache)/items_per_page),buttons,satds
 
 @callback(
         Output({"type":"setd_modal","index":MATCH},"is_open"),
@@ -186,11 +174,10 @@ def load_modal(_):
         Input("branch_picker","value"),
         Input("contribution_cache","data"),
         State("author_picker","value"),
-        State("author_picker_email","value"),
         State("doa_picker","value"),
         State("repo_path","data"),
 )
-def populate_treemap(_,b,cache,name,email,doa,data):
+def populate_treemap(_,b,cache,name,doa,data):
         # df=pd.DataFrame(cache)
         if not cache:
                 return no_update,no_update
@@ -250,13 +237,12 @@ def populate_file_info(data,_,contributions,children):
 
 @callback(
         Output("author_picker","value"),
-        Output("author_picker_email","value"),
         Output("calculate_doa","n_clicks"),
         Input("reset_doa","n_clicks"),
         )
 def reset_options(_):
         if _!=0:
-                return None,None,0
+                return None,0
 @callback(
         Output("sidebar_info", "is_open"),
         Input("open_info", "n_clicks"),
@@ -276,24 +262,8 @@ def populate_author_picker(cache):
         return authors_df["name"].unique().tolist()
 
 @callback(
-        Output("author_picker_email","options"),
-        Output("author_picker_email","disabled"),
-        Input("author_picker","value"),
-        State("authors_cache","data"),
-)
-def populate_author_picker(name,cache):
-        if name:
-                authors_df=pd.DataFrame(cache)
-                authors_df=authors_df.loc[authors_df["name"]==name]
-                return authors_df["email"].unique().tolist(),False
-        else:
-                return no_update,True
-
-#FIXME button stays active if one of the two dropdowns is cleared after selection
-@callback(
         Output("calculate_doa","disabled"),
-        Input("author_picker_email","value"),
         Input("author_picker","value"),
 )
-def populate_author_picker(val,auval):
-        return val==None or auval==None
+def populate_author_picker(auval):
+        return auval==None

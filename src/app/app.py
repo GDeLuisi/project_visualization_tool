@@ -37,7 +37,6 @@ def start_app(repo_path:Union[str|Path],cicd_test:bool,env:bool):
         fluid=True
     )
     logger.info("Loading necessary info, hang tight")
-    rp=RepoMiner(path)
     contributions,tr_fa=retrieve_contribution_data(path)
     logger.info("You're good to go")
     general_options=dbc.Offcanvas(id="sidebar_info",title="Directory discovery",is_open=False,children=
