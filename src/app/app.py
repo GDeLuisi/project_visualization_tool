@@ -71,8 +71,8 @@ def start_app(repo_path:Union[str|Path],cicd_test:bool,env:bool):
         if env=="DEV":
             app.run(debug=True,dev_tools_hot_reload=True)
         else:
-            open("http://localhost:80/")
-            serve(app.server,host="localhost",port=80,_quiet=True,threads=100)
+            open("http://localhost:8080/")
+            serve(app.server,host="localhost",port=8080,_quiet=True,threads=100)
 
 @callback(
         Output("commit_df_cache","data"),
