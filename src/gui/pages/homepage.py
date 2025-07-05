@@ -273,13 +273,17 @@ def update_count_graph(pick,data,branch):
 @callback(
         Output("author_overview","figure"),
         Input("authors_cache","data"),
+        Input("branch_cache","data"),
 )
-def update_pie_graph(data):
+def update_pie_graph(data,b_cache):
         df=pd.DataFrame(data)
+        b_df=pd.DataFrame(b_cache)
+        allowed_commits=set(b_df["commit_hash"].to_list())
+        df["commits_authored"]=df["commits_authored"].apply(lambda r: set(r).intersection(allowed_commits))
         df["contributions"]=df["commits_authored"].apply(lambda r: len(r))
         df=df.groupby("name",as_index=False).sum(True)
         tot:int=df["contributions"].sum()
-        th_percentage=5*tot/100
+        th_percentage=2*tot/100
         df.loc[df['contributions'] < th_percentage, 'name'] = 'Minor contributors total effort'
         fig = px.pie(df, values='contributions', names='name', title='Authors contribution to the project')
         return fig

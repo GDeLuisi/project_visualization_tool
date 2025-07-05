@@ -172,12 +172,13 @@ def load_modal(_):
         Output("dir_treemap","figure"),
         Input("calculate_doa","n_clicks"),
         Input("branch_picker","value"),
+        Input("tag_picker","value"),
         Input("contribution_cache","data"),
         State("author_picker","value"),
         State("doa_picker","value"),
         State("repo_path","data"),
 )
-def populate_treemap(_,b,cache,name,doa,data):
+def populate_treemap(_,b,t,cache,name,doa,data):
         # df=pd.DataFrame(cache)
         if not cache:
                 return no_update,no_update
@@ -191,7 +192,13 @@ def populate_treemap(_,b,cache,name,doa,data):
         if not author_doas.empty:
                 files=author_doas.loc[author_doas["DOA"]>=doa]["fname"].unique()
         path_filter=set(files)
-        tree = build_tree_structure(rp,b if b else "HEAD",path_filter)
+        branch=None
+        caller=ctx.triggered_id
+        if caller=="branch_picker":
+            branch =None if not b or "all" == b else b         
+        if caller=="tag_picker":
+            branch=None if not t or "all" == t else t      
+        tree = build_tree_structure(rp,branch if branch else "HEAD",path_filter)
         for p,o in tree.walk(files_only=True):
                 if not p:
                         tree_dict[f"{o.name}"]=o.hash_string

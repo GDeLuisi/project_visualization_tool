@@ -1,5 +1,5 @@
 from webbrowser import open
-from dash import Dash,html,dcc,page_container,Input,Output,callback,no_update,State,set_props
+from dash import Dash,html,dcc,page_container,Input,Output,callback,no_update,State,set_props,ctx
 from typing import Union,Optional
 from datetime import date
 from pathlib import Path
@@ -39,10 +39,12 @@ def start_app(repo_path:Union[str|Path],cicd_test:bool,env:bool):
     logger.info("Loading necessary info, hang tight")
     contributions,tr_fa=retrieve_contribution_data(path)
     logger.info("You're good to go")
-    general_options=dbc.Offcanvas(id="sidebar_info",title="Directory discovery",is_open=False,children=
+    general_options=dbc.Offcanvas(id="sidebar_info",title="History filters",is_open=False,children=
         [dbc.Stack(
         [
-            html.Div([dbc.Label(["Branch Picker"]),dcc.Dropdown(id="branch_picker",searchable=True,clearable=True,placeholder="Branch name")]),
+            dcc.RadioItems(id="filter_picker",options=[{"label":"Branch picker","value":"branch_option"},{"label":"Tag picker","value":"tag_option"}],value="branch_option",inline=True,labelClassName="px-2"),
+            html.Div([dbc.Label(["Branch Picker"]),dcc.Dropdown(id="branch_picker",searchable=True,clearable=True,placeholder="Branch name")],id="branch_picker_div",className="d-inline"),
+            html.Div([dbc.Label(["Tag Picker"]),dcc.Dropdown(id="tag_picker",searchable=True,clearable=True,placeholder="Tag name")],id="tag_picker_div",className="d-inline"),
         ], gap=2,className="p-2")
         ])
     app.layout = html.Div([
@@ -82,9 +84,9 @@ def start_app(repo_path:Union[str|Path],cicd_test:bool,env:bool):
 def listen_data(_,data):
         rp=RepoMiner(data)
         set_props("branch_picker",{"options":list(( b.name for b in rp.local_branches()))})
+        set_props("tag_picker",{"options":list(( b.name for b in rp.get_tags()))})
         commits=parallel_commit_retrievial(rp)
         commit_df=pd.DataFrame(map(lambda c:c.__dict__,commits))
-        # commit_df.reset_index(inplace=True,drop=True)
         commit_df["date"]=pd.to_datetime(commit_df["date"])
         commit_df["dow"]=commit_df["date"].dt.day_name()
         commit_df["dow_n"]=commit_df["date"].dt.day_of_week
@@ -103,34 +105,37 @@ def load_authors(_,data):
         authors=pd.concat([authors,get_dataframe(author)])
     return authors.to_dict("records")
 
-# @callback(
-#     Output("truck_cache","data"),
-#     Output("contribution_cache","data"),
-#     Input("reload_button","n_clicks"),
-#     State("repo_path","data"),
-#     prevent_inital_call=True
-# )
-# def load_truck_info(_,data):
-#     if _==0:
-#         return no_update
-#     contributions=tf_calculator.compute_DOA(tf_calculator.create_contribution_dataframe(data,only_of_files=False))
-#     tf_contributions=tf_calculator.filter_files_of_interest(contributions)
-#     tr_fa=tf_calculator.compute_truck_factor_from_contributions(tf_contributions)
-#     return tr_fa,contributions.to_dict("records")
 
 @callback(
         Output("branch_cache","data"),
         Input("branch_picker","value"),
+        Input("tag_picker","value"),
         Input("commit_df_cache","data"),
         State("repo_path","data"),
 )
-def filter_branch_data(v,cache,path):
-        branch=None if not v or "all" == v else v            
-        if v  and v!="all":
+def filter_branch_data(v,t,cache,path):
+        caller=ctx.triggered_id
+        branch=None
+        if caller=="branch_picker" and not (not  v or "all" == v ):
+            branch = v
+        if caller=="tag_picker" and not ( not t or "all" == t):
+            branch= t
+        if branch:
             df=pd.DataFrame(cache)
             rp=RepoMiner(path)
-            b=rp.retrieve_commits(branch)
-            df=df[df["commit_hash"].isin(b.commits)] if v else df
-            return df.to_dict("records")
-        return cache if cache else no_update
-    
+            b=[c.commit_hash for c in rp.retrieve_commits(branch)]
+            df=df[df["commit_hash"].isin(b)]
+            cache = df.to_dict("records")
+        cache = cache if cache else no_update
+        return cache
+
+@callback(
+        Output("branch_picker","disabled"),
+        Output("tag_picker","disabled"),
+        Output("branch_picker","value"),
+        Output("tag_picker","value"),
+        Input("filter_picker","value"),
+)
+def choose_filter(choice):
+        output=[False,True,None,None] if choice == "branch_option" else [True,False,None,None]
+        return output
