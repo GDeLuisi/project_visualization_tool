@@ -47,5 +47,5 @@ def main(args:Optional[Sequence[str]]=None,cicd_test:bool=False,env:str="PROD"):
         logger.error("Git repo is corrupted, check for your git config files")
         exit(3)
     logger.info(f"Starting application")
-    start_app(dir,cicd_test,env=env)
+    start_app(Path(dir).resolve().absolute().as_posix(),cicd_test,env=env)
     # find_setd()

@@ -123,7 +123,7 @@ def filter_branch_data(v,t,cache,path):
         if branch:
             df=pd.DataFrame(cache)
             rp=RepoMiner(path)
-            b=[c.commit_hash for c in rp.retrieve_commits(branch)]
+            b=[c.commit_hash for c in rp.get_branch(branch).traverse_commits()] if caller=="branch_picker" else [c.commit_hash for c in rp.get_tag(branch).traverse_commits()]
             df=df[df["commit_hash"].isin(b)]
             cache = df.to_dict("records")
         cache = cache if cache else no_update
