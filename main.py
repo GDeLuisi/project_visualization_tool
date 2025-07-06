@@ -7,4 +7,8 @@ test_project=base_path.parent.joinpath("pandas")
 test_project2=base_path.parent.joinpath("QualiTag")
 test_project3=base_path.parent.joinpath("sudoku-gen-n-solve")
 if __name__ =="__main__":
+<<<<<<< HEAD
     main([base_path.as_posix()],env="PROD")
+=======
+    main([test_project.as_posix()],env="PROD")
+>>>>>>> 82a1544be18a5293c551120dac0f08553392d9cb
