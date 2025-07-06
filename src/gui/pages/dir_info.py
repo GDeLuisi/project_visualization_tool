@@ -5,6 +5,7 @@ import dash.html as html
 from datetime import date
 import plotly.express as px
 import pandas as pd
+from dash_ag_grid import AgGrid
 from pathlib import Path
 from repository_miner import RepoMiner,GitCmdError
 from truck_factor_gdeluisi.main import infer_programming_language,resolve_programming_languages
@@ -21,6 +22,11 @@ from math import ceil
 logger=getLogger("mainpage")
 dash.register_page(__name__,"/dir")
 items_per_page=5 #TODO make it configurable by user
+column_defs_satds=[
+        {"field": "fname", 'headerName': 'File',"filter": "agTextColumnFilter"},
+        {"field": "satd",'headerName': 'SATD',"filter": "agTextColumnFilter"},
+        {"field": "line",'headerName': 'Line',"sortable":True},
+]
 stack=dbc.Stack(id="stack_info",className="p-2 h-75",children=[
         
         dbc.Card(
@@ -30,17 +36,24 @@ stack=dbc.Stack(id="stack_info",className="p-2 h-75",children=[
                 dbc.CardBody(
                         [
                         dbc.Container([
-                                dcc.Loading([
-                                dbc.Pagination(id="satd_pagination",min_value=1,max_value=1,fully_expanded=False,first_last=True,previous_next=True,active_page=1),
-                                dbc.ListGroup(
-                                        id="satd_files",children=[
-                                                html.Br(),
-                                                html.Br(),
-                                                html.Br(),
-                                        ]
-                                ,flush=True,class_name="text-center")
-                        ]
-                        )
+                                AgGrid(
+                                        id="satd_table",
+                                        columnDefs=column_defs_satds,
+                                        columnSize="responsiveSizeToFit",
+                                        defaultColDef={"sortable":False,"resizable":True},
+                                        dashGridOptions={"pagination": True, "animateRows": False},
+                                )
+                        #         dcc.Loading([
+                        #         dbc.Pagination(id="satd_pagination",min_value=1,max_value=1,fully_expanded=False,first_last=True,previous_next=True,active_page=1),
+                        #         dbc.ListGroup(
+                        #                 id="satd_files",children=[
+                        #                         html.Br(),
+                        #                         html.Br(),
+                        #                         html.Br(),
+                        #                 ]
+                        #         ,flush=True,class_name="text-center")
+                        # ]
+                        # )
                         ,]
                                 ),
                         ])
@@ -143,28 +156,34 @@ def open_graph_filtering_collapse(_):
 
 
 @callback(
-        Output("satd_pagination","max_value"),
-        Output("satd_files","children"),
+        # Output("satd_pagination","max_value"),
+        Output("satd_table","rowData"),
         Output("satd_files_cache","data"),
-        Input("satd_pagination","active_page"),
+        # Input("satd_pagination","active_page"),
         Input("satd_files_cache","data"),
         State("repo_path","data"),
         prevent_intial_call=True
 )
 def populate_satd_list(page,cache:dict,path):
         # print("active")
+        df=pd.DataFrame()
         if not cache:
                 rp=RepoMiner(path)
                 highlighters=set(DEFAULT_SATD_HIGHLIHGTER)
                 satds=retrieve_SATDs(rp,highlighters)
                 cache=satds
-        buttons:list[dbc.ListGroupItem]=list()
-        keys=sorted(list(cache.keys()),reverse=True)
-        start_value=(page-1)*items_per_page
-        to_add=keys[start_value:start_value+items_per_page]
-        for key in to_add:
-                buttons.append(dbc.ListGroupItem(SATDDisplayerAIO(key,cache[key],span_props=dict(className="fw-bold ",style={"cursor":"pointer"}),modal_props={"scrollable":True}).create_comp()))
-        return ceil(len(cache)/items_per_page),buttons,satds
+        dicts:list[dict]=list()
+        for file,satds in cache:
+                for line,msg in satds:
+                        dicts.append(dict(fname=file,line=line,satd=msg))
+        df=pd.DataFrame(dicts).to_dict("records")
+        # buttons:list[dbc.ListGroupItem]=list()
+        # keys=sorted(list(cache.keys()),reverse=True)
+        # start_value=(page-1)*items_per_page
+        # to_add=keys[start_value:start_value+items_per_page]
+        # for key in to_add:
+        #         buttons.append(dbc.ListGroupItem(SATDDisplayerAIO(key,cache[key],span_props=dict(className="fw-bold ",style={"cursor":"pointer"}),modal_props={"scrollable":True}).create_comp()))
+        return df,df
 
 @callback(
         Output({"type":"setd_modal","index":MATCH},"is_open"),
