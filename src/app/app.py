@@ -58,6 +58,7 @@ def start_app(repo_path:Union[str|Path],cicd_test:bool,env:bool):
         dcc.Store("repo_path",data=path,storage_type="session"),
         navbar,
         general_options,
+        dbc.Tooltip("Open filter pickers",target="open_info"),
         dbc.Row([ 
                 dbc.Col(
                         children=[

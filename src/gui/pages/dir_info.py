@@ -1,5 +1,6 @@
 import dash
 from dash import dcc,callback,Input,Output,no_update,set_props,State,clientside_callback,Patch,ctx,ALL,MATCH
+from dash.exceptions import PreventUpdate
 import dash.html as html
 from datetime import date
 import plotly.express as px
@@ -25,7 +26,7 @@ stack=dbc.Stack(id="stack_info",className="p-2 h-75",children=[
         dbc.Card(
                 id="setd_files_info",
                 children=[
-                        dbc.CardHeader(id="setd_files_header",children="SATD discovery"),
+                        dbc.CardHeader(id="setd_files_header",children=["SATD discovery",html.I(id="satd_tooltip",className="bi bi-question fw-bold fs-4 ms-3 clickable")]),
                 dbc.CardBody(
                         [
                         dbc.Container([
@@ -50,7 +51,8 @@ stack=dbc.Stack(id="stack_info",className="p-2 h-75",children=[
         dbc.Collapse([
                 dbc.Card([
                 dbc.CardHeader([
-                        "Graph filtering"
+                        "Graph filtering",
+                        html.I(id="dir_filtering_tooltip",className="bi bi-question fw-bold fs-4 ms-3 clickable")
                         ]),
                 dbc.CardBody(
                 [
@@ -100,9 +102,17 @@ layout = dbc.Container([
         dcc.Store("file_cache",data=dict()),
         dcc.Store("file_info_cache",data=dict()),
         dcc.Store("satd_files_cache",data=list()),
+        dbc.Tooltip("Click on the file path to look at the SATDs of the file",target="satd_tooltip",trigger="legacy",is_open=False,id="satd_tooltip_info"),
+        dbc.Tooltip("Click on the file squares (light blue squares) to obtain informations about their authorship",target="dir_tooltip",trigger="legacy",is_open=False,id="dir_tooltip_info"),
+        dbc.Tooltip("Pick an author and a value of DOA to display only the project's submodules on which the author worked",target="dir_filtering_tooltip",trigger="legacy",is_open=False,id="dir_filtering_tooltip_info"),
         dcc.Loading(id="dir_info_loader",display="show",fullscreen=True),
         dbc.Row([
-                html.H1("Directory Tree Analysis",className="fw-bold h2 px-4"),
+                dbc.Col(
+                        [
+                        html.H1("Directory Tree Analysis",className="fw-bold h2 px-4 d-inline me-2"),
+                        html.I(id="dir_tooltip",className="bi bi-question mb-2 fw-bold fs-3 clickable")
+                        ]
+                , width=12,align="end"),
                 dbc.Col(
                         [
                         dcc.Loading(id="dir_treemap_loader",
@@ -192,12 +202,8 @@ def populate_treemap(_,b,t,cache,name,doa,data):
         if not author_doas.empty:
                 files=author_doas.loc[author_doas["DOA"]>=doa]["fname"].unique()
         path_filter=set(files)
-        branch=None
+        branch = b if b else t         
         caller=ctx.triggered_id
-        if caller=="branch_picker":
-            branch =None if not b or "all" == b else b         
-        if caller=="tag_picker":
-            branch=None if not t or "all" == t else t      
         tree = build_tree_structure(rp,branch if branch else "HEAD",path_filter)
         for p,o in tree.walk(files_only=True):
                 if not p:
@@ -226,6 +232,9 @@ def populate_treemap(_,b,t,cache,name,doa,data):
 )
 def populate_file_info(data,_,contributions,children):
         df=pd.DataFrame(contributions)
+        f_type=data["points"][0]["customdata"][1] if data and data["points"] else "folder"
+        if f_type=="folder":
+                return "invisible",no_update,no_update
         file=data["points"][0]["id"]
         file_df:pd.DataFrame=df.loc[df["fname"]==file]
         top_3=file_df.sort_values(by="DOA",ascending=False).iloc[:3]

@@ -1,22 +1,14 @@
 import dash
 from dash import dcc,callback,Input,Output,no_update,set_props,State,clientside_callback,Patch,ctx,MATCH
 from dash.exceptions import PreventUpdate
-from typing import Iterable
 import dash.html as html
-from datetime import date
 import plotly.express as px
 import pandas as pd
-from pathlib import Path
 from repository_miner import RepoMiner
-from repository_miner.data_typing import CommitInfo
-from src._internal.data_typing import Author,TreeStructure,File,Folder
+from src._internal.data_typing import Author
 import dash_bootstrap_components as dbc
-from io import StringIO
 from dash_ag_grid import AgGrid
-import json
-import time
-from src.gui import AuthorDisplayerAIO,CustomTable,CommitDisplayerAIO
-from datetime import datetime
+from src.gui import AuthorDisplayerAIO,CommitDisplayerAIO
 from logging import getLogger
 logger=getLogger("mainpage")
 dash.register_page(__name__,"/")
@@ -37,8 +29,6 @@ column_defs_commits=[
                         "headerName": "Date",
                         "filter": "agDateColumnFilter",
                         "sortable":True,
-                        # "valueGetter": {"function": "d3.timeParse('%d-%m-%Y')(params.data.date)"},
-                        # "valueFormatter": {"function": "params.data.date"}
                 }
         ]
 
@@ -51,6 +41,7 @@ column_defs_authors=[
 
 layout = dbc.Container([
         truck_facto_modal,
+        dbc.Tooltip("Click on the commit hash for commit description",target="commit_tooltip",trigger="legacy",is_open=False,id="commit_tooltip_info"),
          dbc.Modal([
                 dbc.ModalHeader([html.I(className="bi bi-git h3 pe-3"),html.Span(f"Commit: ",className="fw-bold"),html.Span(id="commit_modal_header",className="fw-bold")]),
                 dbc.ModalBody([
@@ -141,7 +132,8 @@ layout = dbc.Container([
                                                 )
                                                         ]),
                                         ],justify="center"),]),
-                dbc.Tab(label="Commits",children=[                                                  
+                dbc.Tab(label="Commits",children=[
+                                        html.I(id="commit_tooltip",className="bi bi-question fw-bold fs-3 clickable"),                                                  
                                         dbc.Row(children=[
                                                 dbc.Col(width=12,align="center",id="commits_tab",children=[
                                                 AgGrid(
@@ -170,12 +162,16 @@ def populate_generale_info(authors,branch,path,):
         current_head=rp.git.rev_parse(["--abbrev-ref","HEAD"]) if not branch else branch
         num_authors=len(authors)
         current_commit=rp.get_commit(branch if branch else current_head)
+        local_branches_num=len(rp.local_branches_list())
+        tag_num=len(list(rp.get_tags()))
         div=dbc.ListGroup(
                 [
                         dbc.ListGroupItem([html.I(className="bi bi-graph-up pe-3 d-inline ms-2"),html.Span(f"Total number of commits: {num_commits}")]),
                         dbc.ListGroupItem([html.I(className="bi bi-pen-fill d-inline ms-2 pe-3"),html.Span(f"Total number of authors: {num_authors}")]),
                         dbc.ListGroupItem([html.I(className="bi bi-signpost-split-fill pe-3 d-inline ms-2"),html.Span(f"Current head of repository: {current_head}")]),
-                        dbc.ListGroupItem([html.I(className="bi bi-code-slash pe-3 d-inline ms-2"),html.Span([f"Last reachable commit: ",CommitDisplayerAIO(current_commit).create_comp()])])
+                        dbc.ListGroupItem([html.I(className="bi bi-bezier2 pe-3 d-inline ms-2"),html.Span([f"Number of branches: ",local_branches_num])]),
+                        dbc.ListGroupItem([html.I(className="bi bi bi-tags pe-3 d-inline ms-2"),html.Span([f"Number of tags: ",tag_num])]),
+                        dbc.ListGroupItem([html.I(className="bi bi-code-slash pe-3 d-inline ms-2"),html.Span([f"Last reachable commit: ",CommitDisplayerAIO(current_commit).create_comp()])]),
                 ]
         ,class_name=" py-3",flush=True)
         return html.Div([
@@ -192,9 +188,9 @@ def populate_truck_info(tf,contributions):
         avg_doa=contrs["DOA"].aggregate("mean")
         div=dbc.ListGroup(
                 [       
-                        dbc.ListGroupItem([html.Span("Calculated value: "+str(tf),className="ms-2"),html.Br(),]),
-                        dbc.ListGroupItem([html.Span("Project's files' avarage DOA: "+str(round(avg_doa,2)),className="ms-2"),html.Br(),]),
-                        dbc.ListGroupItem([html.Span("Number of analyzed files: "+str(len(contrs["fname"].unique())),className="ms-2"),html.Br(),])
+                        dbc.ListGroupItem([html.I(className="bi bi-calculator-fill pe-3 d-inline ms-2"),html.Span("Calculated value: "+str(tf),className="ms-2"),html.Br(),]),
+                        dbc.ListGroupItem([html.I(className="bi bi-pie-chart-fill pe-3 d-inline ms-2"),html.Span("Project's files' avarage DOA: "+str(round(avg_doa,2)),className="ms-2"),html.Br(),]),
+                        dbc.ListGroupItem([html.I(className="bi bi-search pe-3 d-inline ms-2"),html.Span("Number of analyzed files: "+str(len(contrs["fname"].unique())),className="ms-2"),html.Br(),])
                 ]
         ,class_name=" py-3",flush=True)
         return html.Div([
@@ -313,6 +309,7 @@ def populate_contributors(authors,contributions,th=0.75):
                 for a in at.itertuples("At"):
                         tmp_author["email"]=f'{a.email}, {tmp_author["email"]}'.strip()
                         tmp_author["commits_authored"].extend(a.commits_authored)
+                tmp_author["email"]=tmp_author["email"].strip()[:-1]
                 nd=AuthorDisplayerAIO(Author(tmp_author["email"],tmp_author["name"],tmp_author["commits_authored"]),contrs.loc[contrs["author"]==name]["fname"].tolist()).create_comp()
                 cont_div=dbc.ListGroupItem([
                         nd
@@ -328,3 +325,13 @@ def populate_contributors(authors,contributions,th=0.75):
         
         return [html.I(className="bi bi-trophy-fill d-inline h3 pe-3"),
                 html.H4(f"Your project's top {top_3['DOA'].size} contributors:",className="d-inline fw-bold")],div
+
+@callback(
+        Output("commit_tooltip_info","is_open"),
+        Input("commit_tooltip","n_clicks"),
+        prevent_inital_call=True
+)
+def open_toast_commit(_):
+        if _==None:
+                return no_update
+        return True
