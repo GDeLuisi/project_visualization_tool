@@ -19,13 +19,14 @@ from src._internal.file_parser import DEFAULT_SATD_HIGHLIHGTER
 from logging import getLogger
 from src.gui import SATDDisplayerAIO
 from math import ceil
+import re
 logger=getLogger("mainpage")
 dash.register_page(__name__,"/dir")
 items_per_page=5 #TODO make it configurable by user
 column_defs_satds=[
         {"field": "fname", 'headerName': 'File',"filter": "agTextColumnFilter"},
-        {"field": "satd",'headerName': 'SATD',"filter": "agTextColumnFilter"},
         {"field": "line",'headerName': 'Line',"sortable":True},
+        {"field": "satd_type", 'headerName': 'Type',"filter": "agTextColumnFilter"},
 ]
 stack=dbc.Stack(id="stack_info",className="p-2 h-75",children=[
         
@@ -115,10 +116,17 @@ layout = dbc.Container([
         dcc.Store("file_cache",data=dict()),
         dcc.Store("file_info_cache",data=dict()),
         dcc.Store("satd_files_cache",data=list()),
-        dbc.Tooltip("Click on the file path to look at the SATDs of the file",target="satd_tooltip",trigger="legacy",is_open=False,id="satd_tooltip_info"),
+        dbc.Tooltip("Click on any cell of a row to look at the SATD of the file at the correspondig line",target="satd_tooltip",trigger="legacy",is_open=False,id="satd_tooltip_info"),
         dbc.Tooltip("Click on the file squares (light blue squares) to obtain informations about their authorship",target="dir_tooltip",trigger="legacy",is_open=False,id="dir_tooltip_info"),
         dbc.Tooltip("Pick an author and a value of DOA to display only the project's submodules on which the author worked",target="dir_filtering_tooltip",trigger="legacy",is_open=False,id="dir_filtering_tooltip_info"),
         dcc.Loading(id="dir_info_loader",display="show",fullscreen=True),
+        dbc.Modal([
+                        dbc.ModalBody([
+                                dbc.Container([
+                                html.P(id="line_modal_content",style={"overflow": "hidden","word-wrap":"break-word"})
+                        ]),
+                    ])
+                ],id="line_modal",is_open=False,scrollable=True),
         dbc.Row([
                 dbc.Col(
                         [
@@ -164,7 +172,7 @@ def open_graph_filtering_collapse(_):
         State("repo_path","data"),
         prevent_intial_call=True
 )
-def populate_satd_list(page,cache:dict,path):
+def populate_satd_list(cache:dict,path):
         # print("active")
         df=pd.DataFrame()
         if not cache:
@@ -173,9 +181,13 @@ def populate_satd_list(page,cache:dict,path):
                 satds=retrieve_SATDs(rp,highlighters)
                 cache=satds
         dicts:list[dict]=list()
-        for file,satds in cache:
-                for line,msg in satds:
-                        dicts.append(dict(fname=file,line=line,satd=msg))
+        for file,satds in cache.items():
+                for line,msg in satds.items():
+                        msg=msg.strip()
+                        t=""
+                        pattern=re.compile('|'.join(DEFAULT_SATD_HIGHLIHGTER))
+                        t=re.search(pattern,msg).group()
+                        dicts.append(dict(fname=file,line=line,satd_type=t))
         df=pd.DataFrame(dicts).to_dict("records")
         # buttons:list[dbc.ListGroupItem]=list()
         # keys=sorted(list(cache.keys()),reverse=True)
@@ -183,7 +195,7 @@ def populate_satd_list(page,cache:dict,path):
         # to_add=keys[start_value:start_value+items_per_page]
         # for key in to_add:
         #         buttons.append(dbc.ListGroupItem(SATDDisplayerAIO(key,cache[key],span_props=dict(className="fw-bold ",style={"cursor":"pointer"}),modal_props={"scrollable":True}).create_comp()))
-        return df,df
+        return df,cache
 
 @callback(
         Output({"type":"setd_modal","index":MATCH},"is_open"),
@@ -302,3 +314,23 @@ def populate_author_picker(cache):
 )
 def populate_author_picker(auval):
         return auval==None
+
+@callback(
+        Output("line_modal_content","children"),
+        Output("line_modal","is_open"),
+        Input("satd_table","cellClicked"),
+        State("satd_table","rowData"),
+        State("satd_files_cache","data"),
+)
+def populate_satd_modal(cell,row_data,data):
+        if not cell:
+                raise PreventUpdate()
+        row_index=int(cell["rowId"])
+        # print(row_index)
+        # print(cell)
+        row=row_data[row_index]
+        fname,line = row["fname"],row["line"]
+        # print(fname,line)
+        # print(data[fname])
+        satd=data[fname][line]
+        return satd,True
