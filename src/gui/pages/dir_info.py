@@ -142,10 +142,10 @@ layout = dbc.Container([
                                 ],
                         )
                         ]
-                ,width=9,align="center"),
+                ,width=8,align="center"),
                 dbc.Col(
                         [stack],
-                        width=3,align="center"
+                        width=4,align="center"
                 )
                 ]),
                 

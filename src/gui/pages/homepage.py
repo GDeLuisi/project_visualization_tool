@@ -66,7 +66,12 @@ layout = dbc.Container([
                                                                         html.I(className="bi bi-clipboard2-data pe-3 d-inline h2"),html.Span("Repository analysis",className="fw-bold h2"),
                                                                 ]),
                                                 dbc.CardBody(id="repo_info",children=[
-                                                        dcc.Graph(id="repo_info_graph")
+                                                        dcc.Loading(id="author_overview_loader",children=[
+                                                         dcc.Graph(id="repo_info_graph")
+                                                                ],
+                                                                overlay_style={"visibility":"visible", "filter": "blur(2px)"},
+                                                                ),
+                                                                
                                                 ]),
                                         ])
                                 ])
@@ -81,7 +86,12 @@ layout = dbc.Container([
                                                         html.H4(f"Truck factor",className="d-inline fw-bold h2")
                                                 ]),
                                                 dbc.CardBody(id="contribution_info",children=[
-                                                        dcc.Graph(id="contribution_graph")
+                                                        dcc.Loading(id="author_overview_loader",children=[
+                                                         dcc.Graph(id="contribution_graph")
+                                                        ],
+                                                        overlay_style={"visibility":"visible", "filter": "blur(2px)"},
+                                                        ),
+                                                        
                                                 ]),
                                         ])                                
                         ]
@@ -168,7 +178,7 @@ def populate_generale_info(authors,contributions,branch,path,):
                 # f"Current head of repository: {current_head}",
                 "Number of branches":f"{local_branches_num}",
                 "Number of tags":f"{tag_num}",
-                "Number of files of interest":f"{str(len(contrs["fname"].unique()))}",
+                "Number of files of interest":f"{str(len(contrs['fname'].unique()))}",
                 "Last reachable commit":CommitDisplayerAIO(current_commit).create_comp()
         }
         icons={
