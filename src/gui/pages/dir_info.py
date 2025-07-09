@@ -1,9 +1,11 @@
 import dash
 from dash import dcc,callback,Input,Output,no_update,set_props,State,clientside_callback,Patch,ctx,ALL,MATCH
+from dash.exceptions import PreventUpdate
 import dash.html as html
 from datetime import date
 import plotly.express as px
 import pandas as pd
+from dash_ag_grid import AgGrid
 from pathlib import Path
 from repository_miner import RepoMiner,GitCmdError
 from truck_factor_gdeluisi.main import infer_programming_language,resolve_programming_languages
@@ -17,29 +19,42 @@ from src._internal.file_parser import DEFAULT_SATD_HIGHLIHGTER
 from logging import getLogger
 from src.gui import SATDDisplayerAIO
 from math import ceil
+import re
 logger=getLogger("mainpage")
 dash.register_page(__name__,"/dir")
 items_per_page=5 #TODO make it configurable by user
+column_defs_satds=[
+        {"field": "fname", 'headerName': 'File',"filter": "agTextColumnFilter"},
+        {"field": "line",'headerName': 'Line',"sortable":True},
+        {"field": "satd_type", 'headerName': 'Type',"filter": "agTextColumnFilter"},
+]
 stack=dbc.Stack(id="stack_info",className="p-2 h-75",children=[
         
         dbc.Card(
                 id="setd_files_info",
                 children=[
-                        dbc.CardHeader(id="setd_files_header",children="SATD discovery"),
+                        dbc.CardHeader(id="setd_files_header",children=["SATD discovery",html.I(id="satd_tooltip",className="bi bi-question fw-bold fs-4 ms-3 clickable")]),
                 dbc.CardBody(
                         [
                         dbc.Container([
-                                dcc.Loading([
-                                dbc.Pagination(id="satd_pagination",min_value=1,max_value=1,fully_expanded=False,first_last=True,previous_next=True,active_page=1),
-                                dbc.ListGroup(
-                                        id="satd_files",children=[
-                                                html.Br(),
-                                                html.Br(),
-                                                html.Br(),
-                                        ]
-                                ,flush=True,class_name="text-center")
-                        ]
-                        )
+                                AgGrid(
+                                        id="satd_table",
+                                        columnDefs=column_defs_satds,
+                                        columnSize="responsiveSizeToFit",
+                                        defaultColDef={"sortable":False,"resizable":True},
+                                        dashGridOptions={"pagination": True, "animateRows": False},
+                                )
+                        #         dcc.Loading([
+                        #         dbc.Pagination(id="satd_pagination",min_value=1,max_value=1,fully_expanded=False,first_last=True,previous_next=True,active_page=1),
+                        #         dbc.ListGroup(
+                        #                 id="satd_files",children=[
+                        #                         html.Br(),
+                        #                         html.Br(),
+                        #                         html.Br(),
+                        #                 ]
+                        #         ,flush=True,class_name="text-center")
+                        # ]
+                        # )
                         ,]
                                 ),
                         ])
@@ -50,7 +65,8 @@ stack=dbc.Stack(id="stack_info",className="p-2 h-75",children=[
         dbc.Collapse([
                 dbc.Card([
                 dbc.CardHeader([
-                        "Graph filtering"
+                        "Graph filtering",
+                        html.I(id="dir_filtering_tooltip",className="bi bi-question fw-bold fs-4 ms-3 clickable")
                         ]),
                 dbc.CardBody(
                 [
@@ -100,9 +116,24 @@ layout = dbc.Container([
         dcc.Store("file_cache",data=dict()),
         dcc.Store("file_info_cache",data=dict()),
         dcc.Store("satd_files_cache",data=list()),
+        dbc.Tooltip("Click on any cell of a row to look at the SATD of the file at the correspondig line",target="satd_tooltip",trigger="legacy",is_open=False,id="satd_tooltip_info"),
+        dbc.Tooltip("Click on the file squares (light blue squares) to obtain informations about their authorship",target="dir_tooltip",trigger="legacy",is_open=False,id="dir_tooltip_info"),
+        dbc.Tooltip("Pick an author and a value of DOA to display only the project's submodules on which the author worked",target="dir_filtering_tooltip",trigger="legacy",is_open=False,id="dir_filtering_tooltip_info"),
         dcc.Loading(id="dir_info_loader",display="show",fullscreen=True),
+        dbc.Modal([
+                        dbc.ModalBody([
+                                dbc.Container([
+                                html.P(id="line_modal_content",style={"overflow": "hidden","word-wrap":"break-word"})
+                        ]),
+                    ])
+                ],id="line_modal",is_open=False,scrollable=True),
         dbc.Row([
-                html.H1("Directory Tree Analysis",className="fw-bold h2 px-4"),
+                dbc.Col(
+                        [
+                        html.H1("Directory Tree Analysis",className="fw-bold h2 px-4 d-inline me-2"),
+                        html.I(id="dir_tooltip",className="bi bi-question mb-2 fw-bold fs-3 clickable")
+                        ]
+                , width=12,align="end"),
                 dbc.Col(
                         [
                         dcc.Loading(id="dir_treemap_loader",
@@ -111,10 +142,10 @@ layout = dbc.Container([
                                 ],
                         )
                         ]
-                ,width=9,align="center"),
+                ,width=8,align="center"),
                 dbc.Col(
                         [stack],
-                        width=3,align="center"
+                        width=4,align="center"
                 )
                 ]),
                 
@@ -133,28 +164,38 @@ def open_graph_filtering_collapse(_):
 
 
 @callback(
-        Output("satd_pagination","max_value"),
-        Output("satd_files","children"),
+        # Output("satd_pagination","max_value"),
+        Output("satd_table","rowData"),
         Output("satd_files_cache","data"),
-        Input("satd_pagination","active_page"),
+        # Input("satd_pagination","active_page"),
         Input("satd_files_cache","data"),
         State("repo_path","data"),
         prevent_intial_call=True
 )
-def populate_satd_list(page,cache:dict,path):
+def populate_satd_list(cache:dict,path):
         # print("active")
+        df=pd.DataFrame()
         if not cache:
                 rp=RepoMiner(path)
                 highlighters=set(DEFAULT_SATD_HIGHLIHGTER)
                 satds=retrieve_SATDs(rp,highlighters)
                 cache=satds
-        buttons:list[dbc.ListGroupItem]=list()
-        keys=sorted(list(cache.keys()),reverse=True)
-        start_value=(page-1)*items_per_page
-        to_add=keys[start_value:start_value+items_per_page]
-        for key in to_add:
-                buttons.append(dbc.ListGroupItem(SATDDisplayerAIO(key,cache[key],span_props=dict(className="fw-bold ",style={"cursor":"pointer"}),modal_props={"scrollable":True}).create_comp()))
-        return ceil(len(cache)/items_per_page),buttons,satds
+        dicts:list[dict]=list()
+        for file,satds in cache.items():
+                for line,msg in satds.items():
+                        msg=msg.strip()
+                        t=""
+                        pattern=re.compile('|'.join(DEFAULT_SATD_HIGHLIHGTER))
+                        t=re.search(pattern,msg).group()
+                        dicts.append(dict(fname=file,line=line,satd_type=t))
+        df=pd.DataFrame(dicts).to_dict("records")
+        # buttons:list[dbc.ListGroupItem]=list()
+        # keys=sorted(list(cache.keys()),reverse=True)
+        # start_value=(page-1)*items_per_page
+        # to_add=keys[start_value:start_value+items_per_page]
+        # for key in to_add:
+        #         buttons.append(dbc.ListGroupItem(SATDDisplayerAIO(key,cache[key],span_props=dict(className="fw-bold ",style={"cursor":"pointer"}),modal_props={"scrollable":True}).create_comp()))
+        return df,cache
 
 @callback(
         Output({"type":"setd_modal","index":MATCH},"is_open"),
@@ -192,12 +233,8 @@ def populate_treemap(_,b,t,cache,name,doa,data):
         if not author_doas.empty:
                 files=author_doas.loc[author_doas["DOA"]>=doa]["fname"].unique()
         path_filter=set(files)
-        branch=None
+        branch = b if b else t         
         caller=ctx.triggered_id
-        if caller=="branch_picker":
-            branch =None if not b or "all" == b else b         
-        if caller=="tag_picker":
-            branch=None if not t or "all" == t else t      
         tree = build_tree_structure(rp,branch if branch else "HEAD",path_filter)
         for p,o in tree.walk(files_only=True):
                 if not p:
@@ -226,6 +263,9 @@ def populate_treemap(_,b,t,cache,name,doa,data):
 )
 def populate_file_info(data,_,contributions,children):
         df=pd.DataFrame(contributions)
+        f_type=data["points"][0]["customdata"][1] if data and data["points"] else "folder"
+        if f_type=="folder":
+                return "invisible",no_update,no_update
         file=data["points"][0]["id"]
         file_df:pd.DataFrame=df.loc[df["fname"]==file]
         top_3=file_df.sort_values(by="DOA",ascending=False).iloc[:3]
@@ -274,3 +314,23 @@ def populate_author_picker(cache):
 )
 def populate_author_picker(auval):
         return auval==None
+
+@callback(
+        Output("line_modal_content","children"),
+        Output("line_modal","is_open"),
+        Input("satd_table","cellClicked"),
+        State("satd_table","rowData"),
+        State("satd_files_cache","data"),
+)
+def populate_satd_modal(cell,row_data,data):
+        if not cell:
+                raise PreventUpdate()
+        row_index=int(cell["rowId"])
+        # print(row_index)
+        # print(cell)
+        row=row_data[row_index]
+        fname,line = row["fname"],row["line"]
+        # print(fname,line)
+        # print(data[fname])
+        satd=data[fname][line]
+        return satd,True

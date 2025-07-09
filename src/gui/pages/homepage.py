@@ -1,22 +1,15 @@
 import dash
 from dash import dcc,callback,Input,Output,no_update,set_props,State,clientside_callback,Patch,ctx,MATCH
 from dash.exceptions import PreventUpdate
-from typing import Iterable
 import dash.html as html
-from datetime import date
 import plotly.express as px
 import pandas as pd
-from pathlib import Path
+from src.app.helper import create_info_card_columns
 from repository_miner import RepoMiner
-from repository_miner.data_typing import CommitInfo
-from src._internal.data_typing import Author,TreeStructure,File,Folder
+from src._internal.data_typing import Author
 import dash_bootstrap_components as dbc
-from io import StringIO
 from dash_ag_grid import AgGrid
-import json
-import time
-from src.gui import AuthorDisplayerAIO,CustomTable,CommitDisplayerAIO
-from datetime import datetime
+from src.gui import AuthorDisplayerAIO,CommitDisplayerAIO
 from logging import getLogger
 logger=getLogger("mainpage")
 dash.register_page(__name__,"/")
@@ -37,8 +30,6 @@ column_defs_commits=[
                         "headerName": "Date",
                         "filter": "agDateColumnFilter",
                         "sortable":True,
-                        # "valueGetter": {"function": "d3.timeParse('%d-%m-%Y')(params.data.date)"},
-                        # "valueFormatter": {"function": "params.data.date"}
                 }
         ]
 
@@ -51,6 +42,7 @@ column_defs_authors=[
 
 layout = dbc.Container([
         truck_facto_modal,
+        dbc.Tooltip("Click on the commit hash for commit description",target="commit_tooltip",trigger="legacy",is_open=False,id="commit_tooltip_info"),
          dbc.Modal([
                 dbc.ModalHeader([html.I(className="bi bi-git h3 pe-3"),html.Span(f"Commit: ",className="fw-bold"),html.Span(id="commit_modal_header",className="fw-bold")]),
                 dbc.ModalBody([
@@ -63,42 +55,47 @@ layout = dbc.Container([
                     ]),
                 ])
             ],id="commit_modal",size="lg"),
+        dbc.Row(id="repo_general_overview_row",class_name="mb-3"),
         dbc.Row(id="repo_graph_row",children=[
-                dbc.Col(
-                        [       
-                                dcc.Loading([
-                                        dbc.Card([
-                                                dbc.CardHeader(children=[html.I(className="bi bi-git pe-3 d-inline h2"),html.Span("Project overview",className="fw-bold h2"),html.Br(),
-                                                                        ]),
-                                                dbc.CardBody(id="general_info"),
-                                        ])
-                                        
-                                ])
-                                
-                        ]
-                ,width=4,align="start"
-                ),
+                
                 dbc.Col(
                         [
                                 dcc.Loading([
                                         dbc.Card([
                                                 dbc.CardHeader(children=[
-                                                                        html.I(className="bi bi-truck pe-3 d-inline h2"),html.Span("Truck factor",className="fw-bold h2"),
+                                                                        html.I(className="bi bi-clipboard2-data pe-3 d-inline h2"),html.Span("Repository analysis",className="fw-bold h2"),
                                                                 ]),
-                                                dbc.CardBody(id="truck_info"),
+                                                dbc.CardBody(id="repo_info",children=[
+                                                        dcc.Loading(id="author_overview_loader",children=[
+                                                         dcc.Graph(id="repo_info_graph")
+                                                                ],
+                                                                overlay_style={"visibility":"visible", "filter": "blur(2px)"},
+                                                                ),
+                                                                
+                                                ]),
                                         ])
                                 ])
                         ]
-                ,width=4,align="start"
+                ,width=6,align="start"
                 ),
                 dbc.Col(
                         [
                                 dbc.Card([
-                                                dbc.CardHeader(id="contribution_info_header"),
-                                                dbc.CardBody(id="contribution_info"),
+                                                dbc.CardHeader(id="contribution_info_header",children=[
+                                                        html.I(className="bi bi-truck d-inline h2 pe-3"),
+                                                        html.H4(f"Truck factor",className="d-inline fw-bold h2")
+                                                ]),
+                                                dbc.CardBody(id="contribution_info",children=[
+                                                        dcc.Loading(id="author_overview_loader",children=[
+                                                         dcc.Graph(id="contribution_graph")
+                                                        ],
+                                                        overlay_style={"visibility":"visible", "filter": "blur(2px)"},
+                                                        ),
+                                                        
+                                                ]),
                                         ])                                
                         ]
-                ,width=4,align="start"
+                ,width=6,align="start"
                 ),
                 ],class_name="pb-4"),
         dbc.Tabs([
@@ -127,7 +124,7 @@ layout = dbc.Container([
                 dbc.Row([
                         
                 ])
-                ],label="General overview"
+                ],label="History overview"
                 ),
                 dbc.Tab(label="Authors",children=[
                                         dbc.Row(children=[
@@ -141,7 +138,8 @@ layout = dbc.Container([
                                                 )
                                                         ]),
                                         ],justify="center"),]),
-                dbc.Tab(label="Commits",children=[                                                  
+                dbc.Tab(label="Commits",children=[
+                                        html.I(id="commit_tooltip",className="bi bi-question fw-bold fs-3 clickable"),                                                  
                                         dbc.Row(children=[
                                                 dbc.Col(width=12,align="center",id="commits_tab",children=[
                                                 AgGrid(
@@ -159,47 +157,67 @@ layout = dbc.Container([
 ],fluid=True,className="p-10")
 
 @callback(
-        Output("general_info","children"),
+        Output("repo_general_overview_row","children"),
         Input("authors_cache","data"),
+        State("contribution_cache","data"),
         State("branch_picker","value"),
         State("repo_path","data"),
 )
-def populate_generale_info(authors,branch,path,):
+def populate_generale_info(authors,contributions,branch,path,):
         rp=RepoMiner(path)
+        contrs=pd.DataFrame(contributions)
         num_commits=rp.n_commits()
         current_head=rp.git.rev_parse(["--abbrev-ref","HEAD"]) if not branch else branch
         num_authors=len(authors)
         current_commit=rp.get_commit(branch if branch else current_head)
-        div=dbc.ListGroup(
-                [
-                        dbc.ListGroupItem([html.I(className="bi bi-graph-up pe-3 d-inline ms-2"),html.Span(f"Total number of commits: {num_commits}")]),
-                        dbc.ListGroupItem([html.I(className="bi bi-pen-fill d-inline ms-2 pe-3"),html.Span(f"Total number of authors: {num_authors}")]),
-                        dbc.ListGroupItem([html.I(className="bi bi-signpost-split-fill pe-3 d-inline ms-2"),html.Span(f"Current head of repository: {current_head}")]),
-                        dbc.ListGroupItem([html.I(className="bi bi-code-slash pe-3 d-inline ms-2"),html.Span([f"Last reachable commit: ",CommitDisplayerAIO(current_commit).create_comp()])])
-                ]
-        ,class_name=" py-3",flush=True)
-        return html.Div([
-                div
-        ])
+        local_branches_num=len(rp.local_branches_list())
+        tag_num=len(list(rp.get_tags()))
+        texts={
+                "Total number of commits":f"{num_commits}",
+                "Total number of authors":f"{num_authors}",
+                # f"Current head of repository: {current_head}",
+                "Number of branches":f"{local_branches_num}",
+                "Number of tags":f"{tag_num}",
+                "Number of files of interest":f"{str(len(contrs['fname'].unique()))}",
+                "Last reachable commit":CommitDisplayerAIO(current_commit).create_comp()
+        }
+        icons={
+                "Total number of commits":html.I(className="bi bi-graph-up pe-3 d-inline ms-2 h4 fw-bold text-start"),
+                "Total number of authors":html.I(className="bi bi-pen-fill d-inline ms-2 pe-3"),
+                "Number of branches":html.I(className="bi bi-bezier2 pe-3 d-inline ms-2"),
+                "Number of tags":html.I(className="bi bi bi-tags pe-3 d-inline ms-2"),
+                "Number of files of interest":html.I(className="bi bi-search pe-3 d-inline ms-2"),
+                "Last reachable commit":html.I(className="bi bi-code-slash pe-3 d-inline ms-2")
+        }
+        cards:list=create_info_card_columns(texts,icons)
+        return cards
+        
+       
+        
 
 @callback(
-        Output("truck_info","children"),
-        Input("truck_cache","data"),
-        State("contribution_cache","data"),
+        Output("repo_info_graph","figure"),
+        Input("contribution_cache","data"),
 )
-def populate_truck_info(tf,contributions):
+def populate_repo_info(contributions):
+        def extract_suffix(filename:str)->str:
+                try:
+                        return filename.rsplit(".",maxsplit=1)[1]
+                except IndexError:
+                        return "no extension"
         contrs=pd.DataFrame(contributions)
-        avg_doa=contrs["DOA"].aggregate("mean")
-        div=dbc.ListGroup(
-                [       
-                        dbc.ListGroupItem([html.Span("Calculated value: "+str(tf),className="ms-2"),html.Br(),]),
-                        dbc.ListGroupItem([html.Span("Project's files' avarage DOA: "+str(round(avg_doa,2)),className="ms-2"),html.Br(),]),
-                        dbc.ListGroupItem([html.Span("Number of analyzed files: "+str(len(contrs["fname"].unique())),className="ms-2"),html.Br(),])
-                ]
-        ,class_name=" py-3",flush=True)
-        return html.Div([
-                div
-        ])
+        fnames=contrs["fname"].unique()
+        suffixes=[extract_suffix(f) for f in fnames]
+        df=pd.DataFrame(dict(fname=fnames,suffix=suffixes))
+        df=df.groupby("suffix",as_index=False).count()
+        # print(df.head(999))
+        tot:int=df["fname"].sum()
+        th_percentage=3*tot/100
+        df.loc[df['fname'] < th_percentage, 'suffix'] = 'Other'
+        fig = px.pie(df, values='fname', names='suffix',labels={"fname":"files"},hole=0.5)
+        fig.update_layout(annotations=[dict(text='Languages',
+                      font_size=20, showarrow=False, xanchor="center")])
+        return fig
 
 @callback(
         Output("commits_table","rowData"),
@@ -285,46 +303,34 @@ def update_pie_graph(data,b_cache):
         tot:int=df["contributions"].sum()
         th_percentage=2*tot/100
         df.loc[df['contributions'] < th_percentage, 'name'] = 'Minor contributors total effort'
-        fig = px.pie(df, values='contributions', names='name', title='Authors contribution to the project')
+        fig = px.pie(df, values='contributions', names='name', title='Authors commit distribution')
         return fig
 
 @callback(
-        Output("contribution_info_header","children"),
-        Output("contribution_info","children"),
-        Input("authors_cache","data"),
+        Output("contribution_graph","figure"),
+        Input("truck_cache","data"),
         State("contribution_cache","data"),
         prevent_inital_call=True
 )
-def populate_contributors(authors,contributions,th=0.75):
+def populate_contributors(tf,contributions,th=0.75):
         if not contributions:
                 return no_update
         contrs=pd.DataFrame(contributions)
-        auth_df=pd.DataFrame(authors)
         contrs=contrs.loc[contrs["DOA"]>=th]
-        top_3=contrs.groupby("author").count().reset_index(drop=False)
-        top_3=top_3.sort_values("DOA",ascending=False).head(3)
+        top=contrs.groupby("author",as_index=False).count()
+        top=top.sort_values("DOA",ascending=False).head(tf)
+        # print(top.head(tf))
+        fig = px.pie(top, values='DOA', names='author',labels={"DOA":"files authored"},hole=0.4)
+        fig.update_layout(annotations=[dict(text=tf,
+                      font_size=20, showarrow=False, xanchor="center")])
+        return fig
 
-        i=1
-        list_items=[]
-        for author in top_3.itertuples("Author"):
-                name=author.author
-                at=auth_df.loc[(auth_df["name"]==name)]
-                tmp_author=dict(name=name,email="",commits_authored=[])
-                for a in at.itertuples("At"):
-                        tmp_author["email"]=f'{a.email}, {tmp_author["email"]}'.strip()
-                        tmp_author["commits_authored"].extend(a.commits_authored)
-                nd=AuthorDisplayerAIO(Author(tmp_author["email"],tmp_author["name"],tmp_author["commits_authored"]),contrs.loc[contrs["author"]==name]["fname"].tolist()).create_comp()
-                cont_div=dbc.ListGroupItem([
-                        nd
-                ],className="py-1")
-                i+=1
-                list_items.append(cont_div)
-        list_group = dbc.ListGroup(
-        list_items,
-        numbered=True,
-        class_name=" py-3",flush=True
-        )
-        div = html.Div(list_group)
-        
-        return [html.I(className="bi bi-trophy-fill d-inline h3 pe-3"),
-                html.H4(f"Your project's top {top_3['DOA'].size} contributors:",className="d-inline fw-bold")],div
+@callback(
+        Output("commit_tooltip_info","is_open"),
+        Input("commit_tooltip","n_clicks"),
+        prevent_inital_call=True
+)
+def open_toast_commit(_):
+        if _==None:
+                return no_update
+        return True

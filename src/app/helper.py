@@ -7,9 +7,11 @@ import pandas as pd
 import truck_factor_gdeluisi.main as tf_calculator
 from src.utility.helper import get_dataframe
 from os import cpu_count
-from math import ceil
+from math import ceil,floor
 from concurrent.futures import ThreadPoolExecutor,ProcessPoolExecutor
 from functools import partial
+import dash_bootstrap_components as dbc
+from dash import html
 max_worker = min(32,cpu_count())
 
 def build_tree_structure(miner:RepoMiner,commit_sha:str,path_filter:Iterable=set())->TreeStructure:
@@ -64,3 +66,21 @@ def parallel_commit_retrievial(rp:RepoMiner)->list[CommitInfo]:
         if res:
             return_commits.extend(res)
     return return_commits
+
+def create_info_card_columns(texts:dict,icons:dict)->list:
+    cols=[]
+    fraction=ceil(12/len(texts))
+    width=max(fraction,1)
+    for title,text in texts.items():
+        icon=""
+        if title in icons:
+            icon = icons[title]
+        cols.append(dbc.Col(
+                    [
+                            dbc.Card([
+                                    dbc.CardHeader([icon,title],class_name="fw-bold h5 text-start"),
+                                    dbc.CardBody(children=[text],class_name="h5 text-center"),
+                            ],class_name="m-2")
+                    ]
+            ,width=width,align="start"))
+    return cols
