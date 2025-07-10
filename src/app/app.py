@@ -42,7 +42,7 @@ def start_app(repo_path:Union[str|Path],cicd_test:bool,env:bool):
     general_options=dbc.Offcanvas(id="sidebar_info",title="History filters",is_open=False,children=
         [dbc.Stack(
         [
-            dcc.RadioItems(id="filter_picker",options=[{"label":"Branch picker","value":"branch_option"},{"label":"Tag picker","value":"tag_option"}],value="branch_option",inline=True,labelClassName="px-2"),
+            dbc.RadioItems(id="filter_picker",options=[{"label":"Branch picker","value":"branch_option"},{"label":"Tag picker","value":"tag_option"}],value="branch_option",inline=True,switch=True),
             html.Div([dbc.Label(["Branch Picker"]),dcc.Dropdown(id="branch_picker",searchable=True,clearable=True,placeholder="Branch name")],id="branch_picker_div",className="d-inline"),
             html.Div([dbc.Label(["Tag Picker"]),dcc.Dropdown(id="tag_picker",searchable=True,clearable=True,placeholder="Tag name")],id="tag_picker_div",className="d-inline"),
         ], gap=2,className="p-2")

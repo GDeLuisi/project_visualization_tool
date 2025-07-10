@@ -44,17 +44,6 @@ stack=dbc.Stack(id="stack_info",className="p-2 h-75",children=[
                                         defaultColDef={"sortable":False,"resizable":True},
                                         dashGridOptions={"pagination": True, "animateRows": False},
                                 )
-                        #         dcc.Loading([
-                        #         dbc.Pagination(id="satd_pagination",min_value=1,max_value=1,fully_expanded=False,first_last=True,previous_next=True,active_page=1),
-                        #         dbc.ListGroup(
-                        #                 id="satd_files",children=[
-                        #                         html.Br(),
-                        #                         html.Br(),
-                        #                         html.Br(),
-                        #                 ]
-                        #         ,flush=True,class_name="text-center")
-                        # ]
-                        # )
                         ,]
                                 ),
                         ])
@@ -100,9 +89,8 @@ stack=dbc.Stack(id="stack_info",className="p-2 h-75",children=[
                         dbc.CardBody(
                         [
                                 dcc.Loading([
-                                html.Div(
-                                        id="file-info",
-                                )],overlay_style={"visibility":"visible", "filter": "blur(2px)"}
+                                        dcc.Graph(id="file-info-pie")
+                                ],overlay_style={"visibility":"visible", "filter": "blur(2px)"}
                                 ),
                         ]
                         ),
@@ -131,7 +119,7 @@ layout = dbc.Container([
                 dbc.Col(
                         [
                         html.H1("Directory Tree Analysis",className="fw-bold h2 px-4 d-inline me-2"),
-                        html.I(id="dir_tooltip",className="bi bi-question mb-2 fw-bold fs-3 clickable")
+                        html.I(id="dir_tooltip",className="bi bi-question mb-2 fw-bold d-inline fs-3 clickable")
                         ]
                 , width=12,align="end"),
                 dbc.Col(
@@ -142,13 +130,12 @@ layout = dbc.Container([
                                 ],
                         )
                         ]
-                ,width=8,align="center"),
+                ,width=8,align="start"),
                 dbc.Col(
                         [stack],
                         width=4,align="center"
                 )
                 ]),
-                
                 ]
                 ,fluid=True)
 
@@ -253,7 +240,7 @@ def populate_treemap(_,b,t,cache,name,doa,data):
 
 @callback(
         Output("card-file-info","className"),
-        Output("file-info","children"),
+        Output("file-info-pie","figure"),
         Output("file-info-header","children"),
         Input("dir_treemap","clickData"),
         Input("branch_picker","value"),
@@ -261,26 +248,23 @@ def populate_treemap(_,b,t,cache,name,doa,data):
         State("file-info-header","children"),
         prevent_initial_call=True
 )
-def populate_file_info(data,_,contributions,children):
-        df=pd.DataFrame(contributions)
+def populate_file_info(data,_,contributions,children,th=0.7):
+        contrs=pd.DataFrame(contributions)
         f_type=data["points"][0]["customdata"][1] if data and data["points"] else "folder"
         if f_type=="folder":
                 return "invisible",no_update,no_update
         file=data["points"][0]["id"]
-        file_df:pd.DataFrame=df.loc[df["fname"]==file]
-        top_3=file_df.sort_values(by="DOA",ascending=False).iloc[:3]
         if children==file:
-                return "invisible",[],no_update
-        div_children=[html.H4(f"Top {top_3['author'].size} module contributors")]
-        for i,contr in enumerate(top_3.itertuples(name="Contr"),1):
-                v=contr.DOA
-                name=contr.author
-                div_children.append(html.P(
-                        f"{i}° {name} with normalized DOA {round(v,2)}"
-                ))
-        div = html.Div(children=div_children)
-
-        return "visible",div,file
+                return "invisible",no_update,""
+        contrs:pd.DataFrame=contrs.loc[contrs["fname"]==file]
+        contrs=contrs.loc[contrs["DOA"]>=th]
+        top=contrs.groupby("author",as_index=False).sum()
+        top=top.sort_values("tot_contributions",ascending=False)
+        tot:int=top["tot_contributions"].sum()
+        th_percentage=5*tot/100
+        top.loc[top['tot_contributions'] < th_percentage, 'author'] = 'Other contributors'
+        fig = px.pie(top, values='tot_contributions', names='author',labels={"tot_contributions":"contribution"},title="Contribution distribution")
+        return "visible",fig,file
 
 @callback(
         Output("author_picker","value"),

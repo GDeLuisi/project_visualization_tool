@@ -43,6 +43,7 @@ column_defs_authors=[
 layout = dbc.Container([
         truck_facto_modal,
         dbc.Tooltip("Click on the commit hash for commit description",target="commit_tooltip",trigger="legacy",is_open=False,id="commit_tooltip_info"),
+        dbc.Tooltip("Choose a range to filter out all the authors that are out of commit count range",target="commit_slider",is_open=False,placement="top-end",trigger="hover legacy"),
          dbc.Modal([
                 dbc.ModalHeader([html.I(className="bi bi-git h3 pe-3"),html.Span(f"Commit: ",className="fw-bold"),html.Span(id="commit_modal_header",className="fw-bold")]),
                 dbc.ModalBody([
@@ -101,25 +102,37 @@ layout = dbc.Container([
         dbc.Tabs([
                 dbc.Tab(
                         [
-                        dbc.Row(id="author_graph_row",children=[
-                                html.Div([
-                                                dcc.RadioItems(id="x_picker",options=[{"label":"Day of week","value":"dow"},{"label":"Per date","value":"date"}],value="dow",inline=True,labelClassName="px-2"),
-                                                ]),
+                        dbc.Row(id="author_graph_row",children=[           
                         dbc.Col(
                                 [
+                                        dbc.RadioItems(id="x_picker",options=[{"label":"Day of week","value":"dow"},{"label":"Per date","value":"date"}],value="dow",inline=True, switch=True),
                                         dcc.Loading(id="author_loader_graph",
                                         children=[dcc.Graph(id="graph",className="h-100")],
                                         overlay_style={"visibility":"visible", "filter": "blur(2px)"},
                                 ),
-                                ],width=8,align="center"),
-                        
+                                ],width=7,align="center"),
                         dbc.Col([
+                                 dbc.RadioItems(
+                                        options=[
+                                                {"label": "Pie graph", "value": "pie"},
+                                                {"label": "Scatter Plot", "value": "scatter"},
+                                        ],
+                                        value="scatter",
+                                        id="author_graph_picker",
+                                        switch=True,
+                                        inline=True,
+                                        ),
                                 dcc.Loading(id="author_overview_loader",children=[
                                                 dcc.Graph(id="author_overview")
                                         ],
                                         overlay_style={"visibility":"visible", "filter": "blur(2px)"},
                                         ),
+                                
                                 ],width=4),
+                        dbc.Col(width=1,children=[
+                                dcc.RangeSlider(min=1,max=10,id="commit_slider",value=[1,10],vertical=True,tooltip={"placement": "bottom", "always_visible": False})
+                        ]),
+                                
                         ],justify="center"),
                 dbc.Row([
                         
@@ -292,19 +305,48 @@ def update_count_graph(pick,data,branch):
         Output("author_overview","figure"),
         Input("authors_cache","data"),
         Input("branch_cache","data"),
+        Input("author_graph_picker","value"),
+        Input("commit_slider","value"),
+        State("contribution_cache","data"),
 )
-def update_pie_graph(data,b_cache):
+def update_pie_graph(data,b_cache,pick,range,contribution):
         df=pd.DataFrame(data)
         b_df=pd.DataFrame(b_cache)
         allowed_commits=set(b_df["commit_hash"].to_list())
         df["commits_authored"]=df["commits_authored"].apply(lambda r: set(r).intersection(allowed_commits))
         df["contributions"]=df["commits_authored"].apply(lambda r: len(r))
         df=df.groupby("name",as_index=False).sum(True)
-        tot:int=df["contributions"].sum()
-        th_percentage=2*tot/100
-        df.loc[df['contributions'] < th_percentage, 'name'] = 'Minor contributors total effort'
-        fig = px.pie(df, values='contributions', names='name', title='Authors commit distribution')
+        min,max=range
+        mask = (df['contributions'] >= min) & (df['contributions'] <= max)
+        df=df[mask]
+        if pick =="pie":
+                tot:int=df["contributions"].sum()
+                th_percentage=2*tot/100
+                df.loc[df['contributions'] < th_percentage, 'name'] = 'Minor contributors total effort'
+                fig = px.pie(df, values='contributions', names='name', title='Authors commit distribution')
+        else:
+                contrs=pd.DataFrame(contribution)
+                contrs=contrs.groupby("author").sum()
+                df=df.join(contrs,rsuffix="contr",on="name",validate="m:1").reset_index()
+                fig = px.scatter(df,x="name",y="contributions",color="tot_contributions",title='Authors commit distribution', labels={"contributions":"commit count","tot_contributions":"contributions"})
+                fig.update_xaxes(showticklabels=False)
         return fig
+@callback(
+      Output("commit_slider","max"),
+      Output("commit_slider","value"),  
+      Input("authors_cache","data"),
+      Input("branch_cache","data"),         
+)
+
+def setup_slider(data,b_cache):
+        df=pd.DataFrame(data,)
+        b_df=pd.DataFrame(b_cache)
+        allowed_commits=set(b_df["commit_hash"].to_list())
+        df["commits_authored"]=df["commits_authored"].apply(lambda r: set(r).intersection(allowed_commits))
+        df["contributions"]=df["commits_authored"].apply(lambda r: len(r))
+        df=df.groupby("name",as_index=False).sum(True)
+        max= df["contributions"].max()
+        return max , [1,max]
 
 @callback(
         Output("contribution_graph","figure"),
@@ -319,6 +361,9 @@ def populate_contributors(tf,contributions,th=0.75):
         contrs=contrs.loc[contrs["DOA"]>=th]
         top=contrs.groupby("author",as_index=False).count()
         top=top.sort_values("DOA",ascending=False).head(tf)
+        tot:int=top["DOA"].sum()
+        th_percentage=3*tot/100
+        top.loc[top['DOA'] < th_percentage, 'author'] = 'Other contributors'
         # print(top.head(tf))
         fig = px.pie(top, values='DOA', names='author',labels={"DOA":"files authored"},hole=0.4)
         fig.update_layout(annotations=[dict(text=tf,
