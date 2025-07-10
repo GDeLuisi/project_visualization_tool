@@ -66,7 +66,7 @@ def test_build_tree(git,commit_sha,path_filter,expected):
 def test_retrieve_satds(git):
     files=[]
     for hg in DEFAULT_SATD_HIGHLIHGTER:
-        files.extend(git.git.grep(["-l",hg]).split("\n"))
+        files.extend(git.git.grep(["-l","-E",f'\"[^a-zA-Z0-9_]+\\s*({hg}).+\"']).split("\n"))
     satds=retrieve_SATDs(git,DEFAULT_SATD_HIGHLIHGTER)
     assert set(files) == set(satds.keys())
 
