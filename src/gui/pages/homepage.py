@@ -330,6 +330,10 @@ def update_pie_graph(data,b_cache,pick,range,contribution):
                 df=df.join(contrs,rsuffix="contr",on="name",validate="m:1").reset_index()
                 fig = px.scatter(df,x="name",y="contributions",color="tot_contributions",title='Authors commit distribution', labels={"contributions":"commit count","tot_contributions":"contributions"})
                 fig.update_xaxes(showticklabels=False)
+                fig.update_yaxes(gridcolor='lightgrey')
+                fig.update_layout(
+                        plot_bgcolor='white'
+                )
         return fig
 @callback(
       Output("commit_slider","max"),
