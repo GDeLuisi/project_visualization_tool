@@ -44,6 +44,7 @@ layout = dbc.Container([
         truck_facto_modal,
         dbc.Tooltip("Click on the commit hash for commit description",target="commit_tooltip",trigger="legacy",is_open=False,id="commit_tooltip_info"),
         dbc.Tooltip("Choose a range to filter out all the authors that are out of commit count range",target="commit_slider",is_open=False,placement="top-end",trigger="hover legacy"),
+
          dbc.Modal([
                 dbc.ModalHeader([html.I(className="bi bi-git h3 pe-3"),html.Span(f"Commit: ",className="fw-bold"),html.Span(id="commit_modal_header",className="fw-bold")]),
                 dbc.ModalBody([
