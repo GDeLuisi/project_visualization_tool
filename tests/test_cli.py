@@ -19,4 +19,4 @@ def test_cli_no_dir():
 def test_cli_no_git():
     with raises(SystemExit) as e:
         main([f"{workingpath.parent.as_posix()}"],cicd_test=True)
-    assert e.value.code ==2
+    assert e.value.code ==3
