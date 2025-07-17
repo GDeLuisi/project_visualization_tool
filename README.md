@@ -24,7 +24,7 @@ project-viewer <path to repository>
 
 To use Project visualization tool, you will need to have the following programs installed:
 - Python interpreter version >= 3.10
-- git 2.29 or newer
+- git 2.39 or newer
 
 To check for git and python versions open a terminal and execute these commands:
 ```
