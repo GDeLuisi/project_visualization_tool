@@ -185,7 +185,11 @@ def populate_generale_info(authors,contributions,branch,path,):
         num_authors=len(authors)
         current_commit=rp.get_commit(branch if branch else current_head)
         local_branches_num=len(rp.local_branches_list())
-        tag_num=len(list(rp.get_tags()))
+        tag_num = 0
+        try:
+            tag_num=len(list(rp.get_tags()))
+        except Exception:
+            tag_num = 0
         texts={
                 "Total number of commits":f"{num_commits}",
                 "Total number of authors":f"{num_authors}",
