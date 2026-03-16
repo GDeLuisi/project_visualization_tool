@@ -187,7 +187,7 @@ def populate_generale_info(authors,contributions,branch,path,):
         local_branches_num=len(rp.local_branches_list())
         try:
             tag_num=len(list(rp.get_tags()))
-        except Excpetion:
+        except Exception:
             tag_num = 0
         texts={
                 "Total number of commits":f"{num_commits}",
