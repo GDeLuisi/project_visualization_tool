@@ -85,7 +85,10 @@ def start_app(repo_path:Union[str|Path],cicd_test:bool,env:bool):
 def listen_data(_,data):
         rp=RepoMiner(data)
         set_props("branch_picker",{"options":list(( b.name for b in rp.local_branches()))})
-        set_props("tag_picker",{"options":list(( b.name for b in rp.get_tags()))})
+        try:
+            set_props("tag_picker",{"options":list(( b.name for b in rp.get_tags()))})
+        except Exception:
+            set_props("tag_picker",{"options":[]})
         commits=parallel_commit_retrievial(rp)
         commit_df=pd.DataFrame(map(lambda c:c.__dict__,commits))
         commit_df["date"]=pd.to_datetime(commit_df["date"])
